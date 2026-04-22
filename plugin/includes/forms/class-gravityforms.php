@@ -42,6 +42,12 @@ final class GravityForms {
 		add_filter( 'gform_custom_merge_tags', array( __CLASS__, 'register_merge_tags' ), 10, 1 );
 		add_filter( 'gform_replace_merge_tags', array( __CLASS__, 'replace_merge_tags' ), 10, 1 );
 		add_filter( 'gform_notification', array( __CLASS__, 'maybe_append_attribution' ), 10, 1 );
+
+		// Inject attribution as hidden fields so every entry contains them, even
+		// without admin form edits and without relying on notifications or webhooks.
+		add_filter( 'gform_pre_render', array( __CLASS__, 'inject_fields' ) );
+		add_filter( 'gform_pre_validation', array( __CLASS__, 'inject_fields' ) );
+		add_filter( 'gform_pre_submission_filter', array( __CLASS__, 'inject_fields' ) );
 	}
 
 	public static function is_active(): bool {
@@ -120,6 +126,61 @@ final class GravityForms {
 			return '';
 		}
 		return '<hr /><h3>' . esc_html__( 'Attribution', 'leadstream' ) . '</h3><ul>' . implode( '', $rows ) . '</ul>';
+	}
+
+	/**
+	 * Compute the field-prop arrays we want to inject, without any dependency
+	 * on GF_Fields so this is easy to unit test.
+	 */
+	public static function injected_field_props( array $form ): array {
+		$max_id = 0;
+		if ( ! empty( $form['fields'] ) && is_array( $form['fields'] ) ) {
+			foreach ( $form['fields'] as $field ) {
+				$fid = is_object( $field ) ? (int) ( $field->id ?? 0 ) : (int) ( $field['id'] ?? 0 );
+				if ( $fid > $max_id ) {
+					$max_id = $fid;
+				}
+			}
+		}
+
+		$form_id = isset( $form['id'] ) ? (int) $form['id'] : 0;
+		$props   = array();
+		foreach ( \LeadStream\Cookies::FIELD_KEYS as $key ) {
+			++$max_id;
+			$props[] = array(
+				'type'         => 'hidden',
+				'id'           => $max_id,
+				'label'        => 'LeadStream ' . str_replace( '_', ' ', $key ),
+				'inputName'    => 'leadstream_' . $key,
+				'defaultValue' => '{leadstream:' . $key . '}',
+				'formId'       => $form_id,
+				'pageNumber'   => 1,
+				'adminOnly'    => false,
+				'cssClass'     => 'leadstream-injected',
+			);
+		}
+		return $props;
+	}
+
+	public static function inject_fields( $form ) {
+		if ( ! is_array( $form ) ) {
+			return $form;
+		}
+		if ( ! get_option( 'leadstream_gf_auto_inject', true ) ) {
+			return $form;
+		}
+		if ( ! class_exists( '\GF_Fields' ) ) {
+			return $form;
+		}
+
+		if ( ! isset( $form['fields'] ) || ! is_array( $form['fields'] ) ) {
+			$form['fields'] = array();
+		}
+
+		foreach ( self::injected_field_props( $form ) as $props ) {
+			$form['fields'][] = \GF_Fields::create( $props );
+		}
+		return $form;
 	}
 
 	public static function label_for( string $key ): string {

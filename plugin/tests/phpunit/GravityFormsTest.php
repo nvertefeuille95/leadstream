@@ -155,4 +155,68 @@ final class GravityFormsTest extends TestCase {
 	public function test_label_for_unknown_key_returns_raw(): void {
 		$this->assertSame( 'unknown_field', GravityForms::label_for( 'unknown_field' ) );
 	}
+
+	public function test_injected_field_props_one_per_cookie_key(): void {
+		$form  = array( 'id' => 7, 'fields' => array() );
+		$props = GravityForms::injected_field_props( $form );
+
+		$this->assertCount( count( \LeadStream\Cookies::FIELD_KEYS ), $props );
+	}
+
+	public function test_injected_field_props_ids_start_past_max_existing(): void {
+		$form = array(
+			'id'     => 7,
+			'fields' => array(
+				(object) array( 'id' => 3 ),
+				(object) array( 'id' => 9 ),
+				array( 'id' => 5 ),
+			),
+		);
+
+		$props = GravityForms::injected_field_props( $form );
+
+		$this->assertSame( 10, $props[0]['id'] );
+		$this->assertSame( 11, $props[1]['id'] );
+	}
+
+	public function test_injected_field_props_shape(): void {
+		$form  = array( 'id' => 7, 'fields' => array() );
+		$props = GravityForms::injected_field_props( $form );
+
+		$source = $props[0];
+		$this->assertSame( 'hidden', $source['type'] );
+		$this->assertSame( 'leadstream_utm_source', $source['inputName'] );
+		$this->assertSame( '{leadstream:utm_source}', $source['defaultValue'] );
+		$this->assertSame( 7, $source['formId'] );
+		$this->assertFalse( $source['adminOnly'] );
+	}
+
+	public function test_inject_fields_noop_when_setting_disabled(): void {
+		WP_Mock::userFunction( 'get_option' )
+			->with( 'leadstream_gf_auto_inject', true )
+			->andReturn( false );
+
+		$form   = array( 'id' => 1, 'fields' => array( array( 'id' => 1 ) ) );
+		$result = GravityForms::inject_fields( $form );
+
+		$this->assertSame( $form, $result );
+	}
+
+	public function test_inject_fields_noop_when_gf_fields_class_missing(): void {
+		WP_Mock::userFunction( 'get_option' )
+			->with( 'leadstream_gf_auto_inject', true )
+			->andReturn( true );
+
+		$form   = array( 'id' => 1, 'fields' => array( array( 'id' => 1 ) ) );
+		$result = GravityForms::inject_fields( $form );
+
+		// In test env GF_Fields is not loaded, so inject_fields should return
+		// the form unchanged rather than blowing up.
+		$this->assertSame( $form, $result );
+	}
+
+	public function test_inject_fields_noop_on_non_array_input(): void {
+		$result = GravityForms::inject_fields( null );
+		$this->assertNull( $result );
+	}
 }

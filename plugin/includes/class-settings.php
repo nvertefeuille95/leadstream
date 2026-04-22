@@ -93,6 +93,15 @@ final class Settings {
 		);
 		register_setting(
 			self::OPTION_GROUP,
+			'leadstream_gf_auto_inject',
+			array(
+				'type'              => 'boolean',
+				'default'           => true,
+				'sanitize_callback' => array( __CLASS__, 'sanitize_bool' ),
+			)
+		);
+		register_setting(
+			self::OPTION_GROUP,
 			'leadstream_elementor_auto_inject',
 			array(
 				'type'              => 'boolean',
@@ -152,6 +161,14 @@ final class Settings {
 		);
 
 		add_settings_field(
+			'leadstream_gf_auto_inject',
+			__( 'Auto-inject into Gravity Forms entries', 'leadstream' ),
+			array( __CLASS__, 'field_gf_auto_inject' ),
+			self::PAGE_SLUG,
+			self::SECTION_FORMS
+		);
+
+		add_settings_field(
 			'leadstream_gf_auto_append_notifications',
 			__( 'Auto-append to Gravity Forms notifications', 'leadstream' ),
 			array( __CLASS__, 'field_gf_auto_append' ),
@@ -170,6 +187,15 @@ final class Settings {
 
 	public static function render_forms_section_intro(): void {
 		echo '<p>' . esc_html__( 'Gravity Forms merge tags are registered automatically. Use tags like {leadstream:utm_source} or {leadstream:click_id} in notification bodies, subjects, or webhook payloads. Elementor Pro submissions receive the same attribution injected into the record, with no hidden field setup required.', 'leadstream' ) . '</p>';
+	}
+
+	public static function field_gf_auto_inject(): void {
+		$value = (bool) get_option( 'leadstream_gf_auto_inject', true );
+		printf(
+			'<label><input type="checkbox" name="leadstream_gf_auto_inject" value="1" %s /> %s</label>',
+			checked( $value, true, false ),
+			esc_html__( 'Add leadstream_ hidden fields to every Gravity Forms form at render time so attribution is stored on the entry itself, not only in notifications or webhooks.', 'leadstream' )
+		);
 	}
 
 	public static function field_gf_auto_append(): void {
