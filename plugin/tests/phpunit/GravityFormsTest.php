@@ -7,10 +7,17 @@ namespace LeadStream\Tests;
 
 use LeadStream\Forms\GravityForms;
 use PHPUnit\Framework\TestCase;
+use WP_Mock;
 
 final class GravityFormsTest extends TestCase {
 
+	protected function setUp(): void {
+		parent::setUp();
+		WP_Mock::setUp();
+	}
+
 	protected function tearDown(): void {
+		WP_Mock::tearDown();
 		$_COOKIE = array();
 		parent::tearDown();
 	}
@@ -52,5 +59,100 @@ final class GravityFormsTest extends TestCase {
 			'referrer',
 		);
 		$this->assertSame( $expected, GravityForms::FIELD_KEYS );
+	}
+
+	public function test_register_merge_tags_adds_one_entry_per_field(): void {
+		$result = GravityForms::register_merge_tags( array() );
+
+		$this->assertCount( count( GravityForms::FIELD_KEYS ), $result );
+		foreach ( $result as $tag ) {
+			$this->assertArrayHasKey( 'label', $tag );
+			$this->assertArrayHasKey( 'tag', $tag );
+			$this->assertStringStartsWith( 'LeadStream:', $tag['label'] );
+			$this->assertStringStartsWith( '{leadstream:', $tag['tag'] );
+		}
+	}
+
+	public function test_register_merge_tags_preserves_existing(): void {
+		$existing = array( array( 'label' => 'Pre', 'tag' => '{pre}' ) );
+		$result   = GravityForms::register_merge_tags( $existing );
+
+		$this->assertSame( $existing[0], $result[0] );
+		$this->assertCount( count( GravityForms::FIELD_KEYS ) + 1, $result );
+	}
+
+	public function test_replace_merge_tags_noop_when_no_tag_present(): void {
+		$text = 'Plain text with no tags.';
+		$this->assertSame( $text, GravityForms::replace_merge_tags( $text ) );
+	}
+
+	public function test_replace_merge_tags_substitutes_cookie_values(): void {
+		$_COOKIE['leadstream_utm_source'] = 'linkedin';
+		$_COOKIE['leadstream_click_id']   = 'abc123';
+
+		$text   = 'Lead from {leadstream:utm_source} with click {leadstream:click_id}.';
+		$result = GravityForms::replace_merge_tags( $text );
+
+		$this->assertSame( 'Lead from linkedin with click abc123.', $result );
+	}
+
+	public function test_replace_merge_tags_missing_cookies_become_empty(): void {
+		$text   = 'Source: {leadstream:utm_source}.';
+		$result = GravityForms::replace_merge_tags( $text );
+
+		$this->assertSame( 'Source: .', $result );
+	}
+
+	public function test_maybe_append_attribution_no_op_when_setting_off(): void {
+		WP_Mock::userFunction( 'get_option' )
+			->with( 'leadstream_gf_auto_append_notifications', false )
+			->andReturn( false );
+
+		$notification = array( 'message' => 'Hello' );
+		$result       = GravityForms::maybe_append_attribution( $notification );
+
+		$this->assertSame( $notification, $result );
+	}
+
+	public function test_maybe_append_attribution_appends_when_setting_on_and_cookies_present(): void {
+		WP_Mock::userFunction( 'get_option' )
+			->with( 'leadstream_gf_auto_append_notifications', false )
+			->andReturn( true );
+
+		$_COOKIE['leadstream_utm_source'] = 'google';
+		$_COOKIE['leadstream_utm_medium'] = 'cpc';
+
+		$notification = array( 'message' => 'Hello' );
+		$result       = GravityForms::maybe_append_attribution( $notification );
+
+		$this->assertStringContainsString( 'Hello', $result['message'] );
+		$this->assertStringContainsString( 'Attribution', $result['message'] );
+		$this->assertStringContainsString( 'google', $result['message'] );
+		$this->assertStringContainsString( 'cpc', $result['message'] );
+	}
+
+	public function test_maybe_append_attribution_no_op_when_setting_on_but_no_cookies(): void {
+		WP_Mock::userFunction( 'get_option' )
+			->with( 'leadstream_gf_auto_append_notifications', false )
+			->andReturn( true );
+
+		$notification = array( 'message' => 'Hello' );
+		$result       = GravityForms::maybe_append_attribution( $notification );
+
+		$this->assertSame( $notification, $result );
+	}
+
+	public function test_render_attribution_block_empty_when_no_cookies(): void {
+		$this->assertSame( '', GravityForms::render_attribution_block() );
+	}
+
+	public function test_label_for_known_keys(): void {
+		$this->assertSame( 'Source', GravityForms::label_for( 'utm_source' ) );
+		$this->assertSame( 'Click ID', GravityForms::label_for( 'click_id' ) );
+		$this->assertSame( 'First page', GravityForms::label_for( 'first_page' ) );
+	}
+
+	public function test_label_for_unknown_key_returns_raw(): void {
+		$this->assertSame( 'unknown_field', GravityForms::label_for( 'unknown_field' ) );
 	}
 }
