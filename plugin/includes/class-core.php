@@ -25,5 +25,6 @@ final class Core {
 	public function init(): void {
 		load_plugin_textdomain( 'leadstream', false, dirname( LEADSTREAM_BASENAME ) . '/languages' );
 		Assets::register();
+		Capture::register();
 	}
 }

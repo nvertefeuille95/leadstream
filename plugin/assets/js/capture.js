@@ -96,27 +96,27 @@
 	}
 
 	var REFERRER_MAP = [
-		{ match: /(^|\.)google\./,       source: 'google',     medium: 'organic' },
-		{ match: /(^|\.)bing\./,         source: 'bing',       medium: 'organic' },
-		{ match: /(^|\.)yahoo\./,        source: 'yahoo',      medium: 'organic' },
-		{ match: /duckduckgo\.com/,      source: 'duckduckgo', medium: 'organic' },
-		{ match: /baidu\.com/,           source: 'baidu',      medium: 'organic' },
-		{ match: /yandex\./,             source: 'yandex',     medium: 'organic' },
-		{ match: /ecosia\.org/,          source: 'ecosia',     medium: 'organic' },
-		{ match: /brave\.com/,           source: 'brave',      medium: 'organic' },
-		{ match: /(^|\.)facebook\.com|fb\.com/,    source: 'facebook',  medium: 'social' },
-		{ match: /(^|\.)instagram\.com/,           source: 'instagram', medium: 'social' },
-		{ match: /(^|\.)linkedin\.com|lnkd\.in/,   source: 'linkedin',  medium: 'social' },
-		{ match: /(^|\.)(twitter|x)\.com|t\.co/,   source: 'twitter',   medium: 'social' },
-		{ match: /tiktok\.com/,                    source: 'tiktok',    medium: 'social' },
-		{ match: /youtube\.com|youtu\.be/,         source: 'youtube',   medium: 'social' },
-		{ match: /pinterest\.com|pin\.it/,         source: 'pinterest', medium: 'social' },
-		{ match: /reddit\.com|redd\.it/,           source: 'reddit',    medium: 'social' },
-		{ match: /snapchat\.com/,                  source: 'snapchat',  medium: 'social' },
-		{ match: /threads\.net/,                   source: 'threads',   medium: 'social' },
-		{ match: /whatsapp\.com|wa\.me/,           source: 'whatsapp',  medium: 'messaging' },
-		{ match: /telegram\.(org|me)|t\.me/,       source: 'telegram',  medium: 'messaging' },
-		{ match: /github\.com/,                    source: 'github',    medium: 'referral' }
+		{ match: /(^|\.)google\./,                    source: 'google',     medium: 'organic'   },
+		{ match: /(^|\.)bing\./,                      source: 'bing',       medium: 'organic'   },
+		{ match: /(^|\.)yahoo\./,                     source: 'yahoo',      medium: 'organic'   },
+		{ match: /(^|\.)duckduckgo\.com$/,            source: 'duckduckgo', medium: 'organic'   },
+		{ match: /(^|\.)baidu\.com$/,                 source: 'baidu',      medium: 'organic'   },
+		{ match: /(^|\.)yandex\./,                    source: 'yandex',     medium: 'organic'   },
+		{ match: /(^|\.)ecosia\.org$/,                source: 'ecosia',     medium: 'organic'   },
+		{ match: /(^|\.)brave\.com$/,                 source: 'brave',      medium: 'organic'   },
+		{ match: /(^|\.)facebook\.com$|^fb\.com$/,    source: 'facebook',   medium: 'social'    },
+		{ match: /(^|\.)instagram\.com$/,             source: 'instagram',  medium: 'social'    },
+		{ match: /(^|\.)linkedin\.com$|^lnkd\.in$/,   source: 'linkedin',   medium: 'social'    },
+		{ match: /(^|\.)(twitter|x)\.com$|^t\.co$/,   source: 'twitter',    medium: 'social'    },
+		{ match: /(^|\.)tiktok\.com$/,                source: 'tiktok',     medium: 'social'    },
+		{ match: /(^|\.)youtube\.com$|^youtu\.be$/,   source: 'youtube',    medium: 'social'    },
+		{ match: /(^|\.)pinterest\.com$|^pin\.it$/,   source: 'pinterest',  medium: 'social'    },
+		{ match: /(^|\.)reddit\.com$|^redd\.it$/,     source: 'reddit',     medium: 'social'    },
+		{ match: /(^|\.)snapchat\.com$/,              source: 'snapchat',   medium: 'social'    },
+		{ match: /(^|\.)threads\.net$/,               source: 'threads',    medium: 'social'    },
+		{ match: /(^|\.)whatsapp\.com$|^wa\.me$/,     source: 'whatsapp',   medium: 'messaging' },
+		{ match: /(^|\.)telegram\.(org|me)$|^t\.me$/, source: 'telegram',   medium: 'messaging' },
+		{ match: /(^|\.)github\.com$/,                source: 'github',     medium: 'referral'  }
 	];
 
 	function classifyReferrer() {
