@@ -26,5 +26,9 @@ final class Core {
 		load_plugin_textdomain( 'leadstream', false, dirname( LEADSTREAM_BASENAME ) . '/languages' );
 		Assets::register();
 		Capture::register();
+		Forms\GravityForms::register();
+		if ( is_admin() ) {
+			Settings::register();
+		}
 	}
 }

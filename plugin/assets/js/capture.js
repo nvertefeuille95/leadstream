@@ -198,23 +198,28 @@
 		}
 	}
 
-	function fillElementorForms() {
-		var forms = document.querySelectorAll('form.elementor-form');
+	function fillKnownForms() {
+		var forms = document.querySelectorAll('form.elementor-form, form[id^="gform_"]');
 		for (var i = 0; i < forms.length; i++) fillForm(forms[i]);
 	}
 
 	capture();
 
 	if (document.readyState === 'loading') {
-		document.addEventListener('DOMContentLoaded', fillElementorForms);
+		document.addEventListener('DOMContentLoaded', fillKnownForms);
 	} else {
-		fillElementorForms();
+		fillKnownForms();
 	}
 
-	// Elementor Pro forms rendered after initial DOM (popups, lazy-loaded sections).
 	if (typeof window.jQuery !== 'undefined') {
+		// Elementor Pro forms rendered after initial DOM (popups, lazy-loaded sections).
 		window.jQuery(document).on('elementor-pro/forms/new', function (event, form) {
 			if (form && form.$el && form.$el[0]) fillForm(form.$el[0]);
+		});
+		// Gravity Forms re-renders its wrapper after AJAX submit and pagination.
+		window.jQuery(document).on('gform_post_render', function (event, formId) {
+			var form = document.getElementById('gform_' + formId);
+			if (form) fillForm(form);
 		});
 	}
 })();
