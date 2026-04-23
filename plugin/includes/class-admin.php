@@ -37,6 +37,55 @@ final class Admin {
 			self::MENU_SLUG,
 			array( __CLASS__, 'render_submissions' )
 		);
+		add_submenu_page(
+			self::MENU_SLUG,
+			__( 'Uploads', 'leadstream' ),
+			__( 'Uploads', 'leadstream' ),
+			self::CAPABILITY,
+			'leadstream-uploads',
+			array( __CLASS__, 'render_uploads' )
+		);
+	}
+
+	public static function render_uploads(): void {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_die( esc_html__( 'You do not have permission to access this page.', 'leadstream' ) );
+		}
+
+		$rows = Uploads::recent( 100 );
+
+		echo '<div class="wrap">';
+		echo '<h1>' . esc_html__( 'LeadStream Uploads', 'leadstream' ) . '</h1>';
+		echo '<p>' . esc_html__( 'Offline conversion upload attempts to ad platforms. Pending rows drain every 15 minutes; failures retry with backoff.', 'leadstream' ) . '</p>';
+
+		echo '<table class="wp-list-table widefat fixed striped">';
+		echo '<thead><tr>';
+		echo '<th>' . esc_html__( 'Created', 'leadstream' ) . '</th>';
+		echo '<th>' . esc_html__( 'Platform', 'leadstream' ) . '</th>';
+		echo '<th>' . esc_html__( 'Status', 'leadstream' ) . '</th>';
+		echo '<th>' . esc_html__( 'Click ID', 'leadstream' ) . '</th>';
+		echo '<th>' . esc_html__( 'Attempts', 'leadstream' ) . '</th>';
+		echo '<th>' . esc_html__( 'Next retry', 'leadstream' ) . '</th>';
+		echo '<th>' . esc_html__( 'Response', 'leadstream' ) . '</th>';
+		echo '</tr></thead><tbody>';
+
+		if ( empty( $rows ) ) {
+			echo '<tr><td colspan="7">' . esc_html__( 'No uploads yet. Configure a platform under Settings, then submit a form with a click ID to trigger the first upload.', 'leadstream' ) . '</td></tr>';
+		} else {
+			foreach ( $rows as $row ) {
+				echo '<tr>';
+				echo '<td>' . esc_html( (string) ( $row['created_at'] ?? '' ) ) . '</td>';
+				echo '<td>' . esc_html( (string) ( $row['platform'] ?? '' ) ) . '</td>';
+				echo '<td>' . esc_html( (string) ( $row['status'] ?? '' ) ) . '</td>';
+				echo '<td>' . esc_html( (string) ( $row['click_id'] ?? '' ) ) . '</td>';
+				echo '<td>' . esc_html( (string) ( $row['attempts'] ?? '' ) ) . '</td>';
+				echo '<td>' . esc_html( (string) ( $row['next_retry_at'] ?? '' ) ) . '</td>';
+				echo '<td><code style="word-break:break-word">' . esc_html( substr( (string) ( $row['response'] ?? '' ), 0, 200 ) ) . '</code></td>';
+				echo '</tr>';
+			}
+		}
+
+		echo '</tbody></table></div>';
 	}
 
 	public static function render_submissions(): void {

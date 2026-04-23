@@ -28,6 +28,7 @@ final class Core {
 		Capture::register();
 		Forms\GravityForms::register();
 		Forms\ElementorForms::register();
+		Worker::register();
 		if ( is_admin() ) {
 			Admin::register();
 			Settings::register();

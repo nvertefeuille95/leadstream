@@ -14,11 +14,12 @@ defined( 'ABSPATH' ) || exit;
 
 final class Settings {
 
-	public const PAGE_SLUG     = 'leadstream-settings';
-	public const OPTION_GROUP  = 'leadstream_settings';
-	public const SECTION       = 'leadstream_capture';
-	public const SECTION_FORMS = 'leadstream_forms';
-	public const CAPABILITY    = 'manage_options';
+	public const PAGE_SLUG         = 'leadstream-settings';
+	public const OPTION_GROUP      = 'leadstream_settings';
+	public const SECTION           = 'leadstream_capture';
+	public const SECTION_FORMS     = 'leadstream_forms';
+	public const SECTION_PLATFORMS = 'leadstream_platforms';
+	public const CAPABILITY        = 'manage_options';
 
 	public static function register(): void {
 		add_action( 'admin_menu', array( __CLASS__, 'add_menu' ) );
@@ -111,6 +112,46 @@ final class Settings {
 			)
 		);
 
+		$platform_string_options = array(
+			'leadstream_gads_developer_token',
+			'leadstream_gads_refresh_token',
+			'leadstream_gads_client_id',
+			'leadstream_gads_client_secret',
+			'leadstream_gads_customer_id',
+			'leadstream_gads_login_customer_id',
+			'leadstream_gads_conversion_action',
+			'leadstream_gads_currency',
+		);
+		foreach ( $platform_string_options as $key ) {
+			register_setting(
+				self::OPTION_GROUP,
+				$key,
+				array(
+					'type'              => 'string',
+					'default'           => 'leadstream_gads_currency' === $key ? 'USD' : '',
+					'sanitize_callback' => 'sanitize_text_field',
+				)
+			);
+		}
+		register_setting(
+			self::OPTION_GROUP,
+			'leadstream_gads_default_value',
+			array(
+				'type'              => 'number',
+				'default'           => 0,
+				'sanitize_callback' => array( __CLASS__, 'sanitize_money' ),
+			)
+		);
+		register_setting(
+			self::OPTION_GROUP,
+			'leadstream_gads_enabled',
+			array(
+				'type'              => 'boolean',
+				'default'           => false,
+				'sanitize_callback' => array( __CLASS__, 'sanitize_bool' ),
+			)
+		);
+
 		add_settings_section(
 			self::SECTION,
 			__( 'Capture', 'leadstream' ),
@@ -183,6 +224,99 @@ final class Settings {
 			array( __CLASS__, 'field_elementor_auto_inject' ),
 			self::PAGE_SLUG,
 			self::SECTION_FORMS
+		);
+
+		add_settings_section(
+			self::SECTION_PLATFORMS,
+			__( 'Ad platforms', 'leadstream' ),
+			array( __CLASS__, 'render_platforms_section_intro' ),
+			self::PAGE_SLUG
+		);
+
+		add_settings_field( 'leadstream_gads_enabled', __( 'Google Ads: enabled', 'leadstream' ), array( __CLASS__, 'field_gads_enabled' ), self::PAGE_SLUG, self::SECTION_PLATFORMS );
+		add_settings_field( 'leadstream_gads_developer_token', __( 'Developer token', 'leadstream' ), array( __CLASS__, 'field_gads_developer_token' ), self::PAGE_SLUG, self::SECTION_PLATFORMS );
+		add_settings_field( 'leadstream_gads_client_id', __( 'OAuth client ID', 'leadstream' ), array( __CLASS__, 'field_gads_client_id' ), self::PAGE_SLUG, self::SECTION_PLATFORMS );
+		add_settings_field( 'leadstream_gads_client_secret', __( 'OAuth client secret', 'leadstream' ), array( __CLASS__, 'field_gads_client_secret' ), self::PAGE_SLUG, self::SECTION_PLATFORMS );
+		add_settings_field( 'leadstream_gads_refresh_token', __( 'OAuth refresh token', 'leadstream' ), array( __CLASS__, 'field_gads_refresh_token' ), self::PAGE_SLUG, self::SECTION_PLATFORMS );
+		add_settings_field( 'leadstream_gads_customer_id', __( 'Customer ID (no dashes)', 'leadstream' ), array( __CLASS__, 'field_gads_customer_id' ), self::PAGE_SLUG, self::SECTION_PLATFORMS );
+		add_settings_field( 'leadstream_gads_login_customer_id', __( 'Login customer ID (MCC, optional)', 'leadstream' ), array( __CLASS__, 'field_gads_login_customer_id' ), self::PAGE_SLUG, self::SECTION_PLATFORMS );
+		add_settings_field( 'leadstream_gads_conversion_action', __( 'Conversion action resource name', 'leadstream' ), array( __CLASS__, 'field_gads_conversion_action' ), self::PAGE_SLUG, self::SECTION_PLATFORMS );
+		add_settings_field( 'leadstream_gads_default_value', __( 'Default conversion value', 'leadstream' ), array( __CLASS__, 'field_gads_default_value' ), self::PAGE_SLUG, self::SECTION_PLATFORMS );
+		add_settings_field( 'leadstream_gads_currency', __( 'Currency code', 'leadstream' ), array( __CLASS__, 'field_gads_currency' ), self::PAGE_SLUG, self::SECTION_PLATFORMS );
+	}
+
+	public static function sanitize_money( $value ): float {
+		if ( ! is_numeric( $value ) || (float) $value < 0 ) {
+			return 0.0;
+		}
+		return round( (float) $value, 2 );
+	}
+
+	public static function render_platforms_section_intro(): void {
+		echo '<p>' . esc_html__( 'Upload qualifying form submissions as offline conversions to ad platforms. Currently Google Ads only; Meta CAPI, LinkedIn, and TikTok will land in future releases. Credentials are stored in wp_options as plain text; treat this install like you would any other place you keep API tokens.', 'leadstream' ) . '</p>';
+	}
+
+	public static function field_gads_enabled(): void {
+		$value = (bool) get_option( 'leadstream_gads_enabled', false );
+		printf(
+			'<label><input type="checkbox" name="leadstream_gads_enabled" value="1" %s /> %s</label>',
+			checked( $value, true, false ),
+			esc_html__( 'Upload gclid-tagged submissions to Google Ads via the 15-minute worker.', 'leadstream' )
+		);
+	}
+
+	public static function field_gads_developer_token(): void {
+		self::text_field( 'leadstream_gads_developer_token', __( 'From Google Ads UI > Tools > API Center.', 'leadstream' ) );
+	}
+
+	public static function field_gads_client_id(): void {
+		self::text_field( 'leadstream_gads_client_id', __( 'From Google Cloud Console OAuth 2.0 credentials.', 'leadstream' ) );
+	}
+
+	public static function field_gads_client_secret(): void {
+		self::text_field( 'leadstream_gads_client_secret', __( 'Paired with client ID.', 'leadstream' ), 'password' );
+	}
+
+	public static function field_gads_refresh_token(): void {
+		self::text_field( 'leadstream_gads_refresh_token', __( 'Generate via OAuth Playground with scope https://www.googleapis.com/auth/adwords.', 'leadstream' ), 'password' );
+	}
+
+	public static function field_gads_customer_id(): void {
+		self::text_field( 'leadstream_gads_customer_id', __( '10-digit Google Ads customer ID, no dashes.', 'leadstream' ) );
+	}
+
+	public static function field_gads_login_customer_id(): void {
+		self::text_field( 'leadstream_gads_login_customer_id', __( 'Set to the MCC ID when managing through a manager account.', 'leadstream' ) );
+	}
+
+	public static function field_gads_conversion_action(): void {
+		self::text_field(
+			'leadstream_gads_conversion_action',
+			__( 'Full resource name of the conversion action, e.g. customers/1234567890/conversionActions/987654321.', 'leadstream' )
+		);
+	}
+
+	public static function field_gads_default_value(): void {
+		$value = (float) get_option( 'leadstream_gads_default_value', 0 );
+		printf(
+			'<input type="number" name="leadstream_gads_default_value" value="%s" min="0" step="0.01" class="small-text" /> <span class="description">%s</span>',
+			esc_attr( (string) $value ),
+			esc_html__( 'Used when the submission has no per-form value. Set higher than 0 so Google Ads optimizes against qualified leads.', 'leadstream' )
+		);
+	}
+
+	public static function field_gads_currency(): void {
+		self::text_field( 'leadstream_gads_currency', __( 'ISO currency code, e.g. USD, EUR, CAD.', 'leadstream' ) );
+	}
+
+	private static function text_field( string $option, string $help, string $type = 'text' ): void {
+		$value = (string) get_option( $option, '' );
+		printf(
+			'<input type="%1$s" name="%2$s" value="%3$s" class="regular-text" autocomplete="off" /> <p class="description">%4$s</p>',
+			esc_attr( $type ),
+			esc_attr( $option ),
+			esc_attr( $value ),
+			esc_html( $help )
 		);
 	}
 

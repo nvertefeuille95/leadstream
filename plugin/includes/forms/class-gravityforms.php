@@ -81,6 +81,38 @@ final class GravityForms {
 				'form_id'     => isset( $entry['form_id'] ) ? (string) $entry['form_id'] : null,
 			)
 		);
+
+		self::maybe_enqueue_google_ads_upload( $entry );
+	}
+
+	private static function maybe_enqueue_google_ads_upload( array $entry ): void {
+		if ( ! get_option( 'leadstream_gads_enabled', false ) ) {
+			return;
+		}
+		if ( ! \LeadStream\Platforms\GoogleAds::is_configured() ) {
+			return;
+		}
+
+		$click_id      = self::cookie( 'click_id' );
+		$click_id_type = self::cookie( 'click_id_type' );
+		if ( '' === $click_id || 'gclid' !== $click_id_type ) {
+			return;
+		}
+
+		$email      = \LeadStream\Uploads::extract_email_from_entry( $entry );
+		$email_hash = '' !== $email ? \LeadStream\Uploads::hash_email( $email ) : '';
+
+		$event_id = \LeadStream\Events::uuid();
+
+		\LeadStream\Uploads::enqueue(
+			array(
+				'event_id'      => $event_id,
+				'platform'      => \LeadStream\Platforms\GoogleAds::PLATFORM,
+				'click_id'      => $click_id,
+				'click_id_type' => $click_id_type,
+				'email_hash'    => $email_hash,
+			)
+		);
 	}
 
 	public static function cookie( string $key ): string {
