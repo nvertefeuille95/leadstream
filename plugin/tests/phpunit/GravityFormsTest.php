@@ -254,4 +254,37 @@ final class GravityFormsTest extends TestCase {
 		$value = GravityForms::entry_list_column_value( 'original', 7, 'other_key', array( 'id' => 42 ) );
 		$this->assertSame( 'original', $value );
 	}
+
+	public function test_sidebar_meta_noop_for_invalid_entry(): void {
+		ob_start();
+		GravityForms::render_entry_sidebar_meta( array(), array() );
+		$this->assertSame( '', ob_get_clean() );
+	}
+
+	public function test_sidebar_meta_noop_when_no_meta_present(): void {
+		WP_Mock::userFunction( 'gform_get_meta' )->andReturn( '' );
+
+		ob_start();
+		GravityForms::render_entry_sidebar_meta( array(), array( 'id' => 42 ) );
+		$this->assertSame( '', ob_get_clean() );
+	}
+
+	public function test_sidebar_meta_renders_postbox_when_meta_present(): void {
+		WP_Mock::userFunction( 'gform_get_meta' )
+			->with( 42, 'leadstream_utm_source' )
+			->andReturn( 'google' );
+		WP_Mock::userFunction( 'gform_get_meta' )
+			->with( 42, 'leadstream_click_id' )
+			->andReturn( 'abc123' );
+		WP_Mock::userFunction( 'gform_get_meta' )->andReturn( '' );
+
+		ob_start();
+		GravityForms::render_entry_sidebar_meta( array(), array( 'id' => 42 ) );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'LeadStream Attribution', $output );
+		$this->assertStringContainsString( 'google', $output );
+		$this->assertStringContainsString( 'abc123', $output );
+		$this->assertStringContainsString( 'postbox', $output );
+	}
 }

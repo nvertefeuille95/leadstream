@@ -54,6 +54,9 @@ final class GravityForms {
 		// picker cannot see them without these filters.
 		add_filter( 'gform_entry_list_columns', array( __CLASS__, 'entry_list_columns' ), 10, 2 );
 		add_filter( 'gform_entries_field_value', array( __CLASS__, 'entry_list_column_value' ), 10, 4 );
+
+		// Dedicated Attribution metabox on the individual entry detail page.
+		add_action( 'gform_entry_detail_sidebar_middle', array( __CLASS__, 'render_entry_sidebar_meta' ), 10, 2 );
 	}
 
 	public static function is_active(): bool {
@@ -218,6 +221,37 @@ final class GravityForms {
 		}
 		$meta = gform_get_meta( $entry_id, $field_id );
 		return is_string( $meta ) ? $meta : '';
+	}
+
+	public static function render_entry_sidebar_meta( $form, $entry ): void {
+		unset( $form );
+		$entry_id = is_array( $entry ) && isset( $entry['id'] ) ? (int) $entry['id'] : 0;
+		if ( $entry_id <= 0 || ! function_exists( 'gform_get_meta' ) ) {
+			return;
+		}
+
+		$rows = array();
+		foreach ( self::FIELD_KEYS as $key ) {
+			$meta = gform_get_meta( $entry_id, 'leadstream_' . $key );
+			if ( is_string( $meta ) && '' !== $meta ) {
+				$rows[ $key ] = $meta;
+			}
+		}
+
+		if ( empty( $rows ) ) {
+			return;
+		}
+
+		echo '<div id="leadstream_attribution" class="postbox">';
+		echo '<h3 class="hndle"><span>' . esc_html__( 'LeadStream Attribution', 'leadstream' ) . '</span></h3>';
+		echo '<div class="inside"><table class="widefat" style="border:0"><tbody>';
+		foreach ( $rows as $key => $value ) {
+			echo '<tr>';
+			echo '<th style="text-align:left;padding:4px 0;vertical-align:top">' . esc_html( self::label_for( $key ) ) . '</th>';
+			echo '<td style="padding:4px 0;word-break:break-word">' . esc_html( $value ) . '</td>';
+			echo '</tr>';
+		}
+		echo '</tbody></table></div></div>';
 	}
 
 	public static function label_for( string $key ): string {
