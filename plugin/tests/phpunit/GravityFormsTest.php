@@ -219,4 +219,39 @@ final class GravityFormsTest extends TestCase {
 		$result = GravityForms::inject_fields( null );
 		$this->assertNull( $result );
 	}
+
+	public function test_entry_list_columns_adds_leadstream_keys(): void {
+		$existing = array( 1 => 'Name', 2 => 'Email' );
+		$result   = GravityForms::entry_list_columns( $existing, 7 );
+
+		$this->assertArrayHasKey( 'leadstream_utm_source', $result );
+		$this->assertArrayHasKey( 'leadstream_click_id', $result );
+		$this->assertArrayHasKey( 'leadstream_first_page', $result );
+		$this->assertSame( 'Name', $result[1] );
+		$this->assertSame( 'Email', $result[2] );
+		$this->assertStringStartsWith( 'LS ', $result['leadstream_utm_source'] );
+	}
+
+	public function test_entry_list_columns_passthrough_on_non_array(): void {
+		$this->assertNull( GravityForms::entry_list_columns( null ) );
+	}
+
+	public function test_entry_list_column_value_returns_meta_for_leadstream_keys(): void {
+		WP_Mock::userFunction( 'gform_get_meta' )
+			->with( 42, 'leadstream_utm_source' )
+			->andReturn( 'google' );
+
+		$value = GravityForms::entry_list_column_value( '', 7, 'leadstream_utm_source', array( 'id' => 42 ) );
+		$this->assertSame( 'google', $value );
+	}
+
+	public function test_entry_list_column_value_passthrough_for_numeric_field_id(): void {
+		$value = GravityForms::entry_list_column_value( 'original', 7, 1, array( 'id' => 42 ) );
+		$this->assertSame( 'original', $value );
+	}
+
+	public function test_entry_list_column_value_passthrough_for_non_leadstream_key(): void {
+		$value = GravityForms::entry_list_column_value( 'original', 7, 'other_key', array( 'id' => 42 ) );
+		$this->assertSame( 'original', $value );
+	}
 }

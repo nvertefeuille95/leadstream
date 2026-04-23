@@ -48,12 +48,6 @@ final class GravityForms {
 		add_filter( 'gform_pre_render', array( __CLASS__, 'inject_fields' ) );
 		add_filter( 'gform_pre_validation', array( __CLASS__, 'inject_fields' ) );
 		add_filter( 'gform_pre_submission_filter', array( __CLASS__, 'inject_fields' ) );
-
-		// Surface attribution as columns in the Entries list view. Our fields
-		// are virtual (not in the persisted form definition), so GF's column
-		// picker cannot see them without these filters.
-		add_filter( 'gform_entry_list_columns', array( __CLASS__, 'entry_list_columns' ), 10, 2 );
-		add_filter( 'gform_entries_field_value', array( __CLASS__, 'entry_list_column_value' ), 10, 4 );
 	}
 
 	public static function is_active(): bool {
@@ -191,33 +185,6 @@ final class GravityForms {
 			$form['fields'][] = \GF_Fields::create( $props );
 		}
 		return $form;
-	}
-
-	public static function entry_list_columns( $columns, $form_id = 0 ) {
-		if ( ! is_array( $columns ) ) {
-			return $columns;
-		}
-		unset( $form_id );
-		foreach ( \LeadStream\Cookies::FIELD_KEYS as $key ) {
-			$columns[ 'leadstream_' . $key ] = 'LS ' . self::label_for( $key );
-		}
-		return $columns;
-	}
-
-	public static function entry_list_column_value( $value, $form_id, $field_id, $entry ) {
-		unset( $form_id );
-		if ( ! is_string( $field_id ) || 0 !== strpos( $field_id, 'leadstream_' ) ) {
-			return $value;
-		}
-		if ( ! function_exists( 'gform_get_meta' ) ) {
-			return $value;
-		}
-		$entry_id = is_array( $entry ) && isset( $entry['id'] ) ? (int) $entry['id'] : 0;
-		if ( $entry_id <= 0 ) {
-			return $value;
-		}
-		$meta = gform_get_meta( $entry_id, $field_id );
-		return is_string( $meta ) ? $meta : '';
 	}
 
 	public static function label_for( string $key ): string {
