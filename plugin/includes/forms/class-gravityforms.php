@@ -55,19 +55,23 @@ final class GravityForms {
 	}
 
 	public static function attach_meta( array $entry ): void {
-		if ( ! function_exists( 'gform_update_meta' ) ) {
-			return;
-		}
 		$entry_id = isset( $entry['id'] ) ? (int) $entry['id'] : 0;
-		if ( $entry_id <= 0 ) {
-			return;
-		}
-		foreach ( self::FIELD_KEYS as $key ) {
-			$value = self::cookie( $key );
-			if ( '' !== $value ) {
-				gform_update_meta( $entry_id, 'leadstream_' . $key, $value );
+
+		if ( $entry_id > 0 && function_exists( 'gform_update_meta' ) ) {
+			foreach ( self::FIELD_KEYS as $key ) {
+				$value = self::cookie( $key );
+				if ( '' !== $value ) {
+					gform_update_meta( $entry_id, 'leadstream_' . $key, $value );
+				}
 			}
 		}
+
+		\LeadStream\Events::record(
+			array(
+				'form_source' => 'gravity',
+				'form_id'     => isset( $entry['form_id'] ) ? (string) $entry['form_id'] : null,
+			)
+		);
 	}
 
 	public static function cookie( string $key ): string {

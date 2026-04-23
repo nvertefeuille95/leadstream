@@ -29,6 +29,7 @@ final class Core {
 		Forms\GravityForms::register();
 		Forms\ElementorForms::register();
 		if ( is_admin() ) {
+			Admin::register();
 			Settings::register();
 		}
 	}

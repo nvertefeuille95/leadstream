@@ -20,6 +20,7 @@ final class ElementorForms {
 			return;
 		}
 		add_action( 'elementor_pro/forms/new_record', array( __CLASS__, 'inject_attribution' ), 5, 1 );
+		add_action( 'elementor_pro/forms/new_record', array( __CLASS__, 'record_submission' ), 20, 1 );
 	}
 
 	public static function is_active(): bool {
@@ -51,5 +52,18 @@ final class ElementorForms {
 				)
 			);
 		}
+	}
+
+	public static function record_submission( $record ): void {
+		$form_id = '';
+		if ( is_object( $record ) && method_exists( $record, 'get_form_settings' ) ) {
+			$form_id = (string) $record->get_form_settings( 'id' );
+		}
+		\LeadStream\Events::record(
+			array(
+				'form_source' => 'elementor',
+				'form_id'     => '' !== $form_id ? $form_id : null,
+			)
+		);
 	}
 }

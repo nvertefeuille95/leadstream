@@ -14,7 +14,7 @@ defined( 'ABSPATH' ) || exit;
 
 final class Settings {
 
-	public const PAGE_SLUG     = 'leadstream';
+	public const PAGE_SLUG     = 'leadstream-settings';
 	public const OPTION_GROUP  = 'leadstream_settings';
 	public const SECTION       = 'leadstream_capture';
 	public const SECTION_FORMS = 'leadstream_forms';
@@ -27,9 +27,10 @@ final class Settings {
 	}
 
 	public static function add_menu(): void {
-		add_options_page(
+		add_submenu_page(
+			Admin::MENU_SLUG,
 			__( 'LeadStream Settings', 'leadstream' ),
-			__( 'LeadStream', 'leadstream' ),
+			__( 'Settings', 'leadstream' ),
 			self::CAPABILITY,
 			self::PAGE_SLUG,
 			array( __CLASS__, 'render_page' )
@@ -342,7 +343,7 @@ final class Settings {
 	}
 
 	public static function action_links( array $links ): array {
-		$url           = admin_url( 'options-general.php?page=' . self::PAGE_SLUG );
+		$url           = admin_url( 'admin.php?page=' . self::PAGE_SLUG );
 		$settings_link = '<a href="' . esc_url( $url ) . '">' . esc_html__( 'Settings', 'leadstream' ) . '</a>';
 		array_unshift( $links, $settings_link );
 		return $links;
