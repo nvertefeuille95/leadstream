@@ -32,3 +32,6 @@ phpcs.xml
 
 # Composer
 composer.phar
+
+# Release builds
+build/
