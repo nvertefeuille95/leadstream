@@ -172,7 +172,8 @@ final class GoogleAds {
 		$conversion = array(
 			'conversionAction'   => $creds['conversion_action'],
 			'gclid'              => (string) $row['click_id'],
-			'conversionDateTime' => gmdate( 'Y-m-d H:i:sO', time() ),
+			// Google Ads wants the offset with a colon (+00:00); PHP's P format does that. O gives +0000.
+			'conversionDateTime' => gmdate( 'Y-m-d H:i:sP', time() ),
 			'conversionValue'    => $conversion_value,
 			'currencyCode'       => $creds['currency'],
 			'orderId'            => (string) $row['event_id'],

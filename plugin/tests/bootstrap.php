@@ -24,7 +24,7 @@ if ( ! defined( 'LEADSTREAM_URL' ) ) {
 }
 
 if ( ! defined( 'LEADSTREAM_BETA_DOMAINS' ) ) {
-	define( 'LEADSTREAM_BETA_DOMAINS', array( 'timberbrookmarketing.com', 'nolimitcarts.com', 'controlstation.com', 'nexeris.us' ) );
+	define( 'LEADSTREAM_BETA_DOMAINS', array( 'timberbrookmarketing.com', 'nolimitcarts.com', 'controlstation.com', 'nexeris.us', 'ascendpropertymanagement.co' ) );
 }
 
 if ( ! function_exists( 'sanitize_text_field' ) ) {
