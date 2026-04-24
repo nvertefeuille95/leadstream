@@ -121,14 +121,21 @@ final class Settings {
 			'leadstream_gads_login_customer_id',
 			'leadstream_gads_conversion_action',
 			'leadstream_gads_currency',
+			'leadstream_gads_api_version',
 		);
 		foreach ( $platform_string_options as $key ) {
+			$default = '';
+			if ( 'leadstream_gads_currency' === $key ) {
+				$default = 'USD';
+			} elseif ( 'leadstream_gads_api_version' === $key ) {
+				$default = \LeadStream\Platforms\GoogleAds::DEFAULT_API_VERSION;
+			}
 			register_setting(
 				self::OPTION_GROUP,
 				$key,
 				array(
 					'type'              => 'string',
-					'default'           => 'leadstream_gads_currency' === $key ? 'USD' : '',
+					'default'           => $default,
 					'sanitize_callback' => 'sanitize_text_field',
 				)
 			);
@@ -243,6 +250,7 @@ final class Settings {
 		add_settings_field( 'leadstream_gads_conversion_action', __( 'Conversion action resource name', 'leadstream' ), array( __CLASS__, 'field_gads_conversion_action' ), self::PAGE_SLUG, self::SECTION_PLATFORMS );
 		add_settings_field( 'leadstream_gads_default_value', __( 'Default conversion value', 'leadstream' ), array( __CLASS__, 'field_gads_default_value' ), self::PAGE_SLUG, self::SECTION_PLATFORMS );
 		add_settings_field( 'leadstream_gads_currency', __( 'Currency code', 'leadstream' ), array( __CLASS__, 'field_gads_currency' ), self::PAGE_SLUG, self::SECTION_PLATFORMS );
+		add_settings_field( 'leadstream_gads_api_version', __( 'API version', 'leadstream' ), array( __CLASS__, 'field_gads_api_version' ), self::PAGE_SLUG, self::SECTION_PLATFORMS );
 	}
 
 	public static function sanitize_money( $value ): float {
@@ -307,6 +315,18 @@ final class Settings {
 
 	public static function field_gads_currency(): void {
 		self::text_field( 'leadstream_gads_currency', __( 'ISO currency code, e.g. USD, EUR, CAD.', 'leadstream' ) );
+	}
+
+	public static function field_gads_api_version(): void {
+		$value = (string) get_option( 'leadstream_gads_api_version', \LeadStream\Platforms\GoogleAds::DEFAULT_API_VERSION );
+		if ( '' === $value ) {
+			$value = \LeadStream\Platforms\GoogleAds::DEFAULT_API_VERSION;
+		}
+		printf(
+			'<input type="text" name="leadstream_gads_api_version" value="%s" class="small-text" placeholder="v20" /> <p class="description">%s</p>',
+			esc_attr( $value ),
+			esc_html__( 'Google Ads API version (e.g. v19, v20, v21). Google rolls these every few months; bump here when you see a 404 from the API without having to update the plugin.', 'leadstream' )
+		);
 	}
 
 	private static function text_field( string $option, string $help, string $type = 'text' ): void {

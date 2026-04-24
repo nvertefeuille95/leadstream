@@ -100,10 +100,37 @@ final class GoogleAdsTest extends TestCase {
 					'leadstream_gads_conversion_action' => 'customers/1/conversionActions/2',
 					'leadstream_gads_default_value'     => 100,
 					'leadstream_gads_currency'          => 'USD',
+					'leadstream_gads_api_version'       => 'v20',
 				);
 				return $map[ $key ] ?? $default;
 			}
 		);
 		$this->assertTrue( GoogleAds::is_configured() );
+	}
+
+	public function test_creds_falls_back_to_default_api_version_when_invalid(): void {
+		WP_Mock::userFunction( 'get_option' )->andReturnUsing(
+			static function ( $key, $default = false ) {
+				if ( 'leadstream_gads_api_version' === $key ) {
+					return 'not-a-version';
+				}
+				return $default;
+			}
+		);
+		$creds = GoogleAds::creds();
+		$this->assertSame( GoogleAds::DEFAULT_API_VERSION, $creds['api_version'] );
+	}
+
+	public function test_creds_accepts_valid_api_version(): void {
+		WP_Mock::userFunction( 'get_option' )->andReturnUsing(
+			static function ( $key, $default = false ) {
+				if ( 'leadstream_gads_api_version' === $key ) {
+					return 'v21';
+				}
+				return $default;
+			}
+		);
+		$creds = GoogleAds::creds();
+		$this->assertSame( 'v21', $creds['api_version'] );
 	}
 }

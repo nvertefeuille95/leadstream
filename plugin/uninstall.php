@@ -43,6 +43,7 @@ $options_to_drop = array(
 	'leadstream_gads_conversion_action',
 	'leadstream_gads_default_value',
 	'leadstream_gads_currency',
+	'leadstream_gads_api_version',
 );
 foreach ( $options_to_drop as $opt ) {
 	delete_option( $opt );

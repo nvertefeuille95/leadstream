@@ -14,7 +14,7 @@ defined( 'ABSPATH' ) || exit;
 final class GoogleAds {
 
 	public const PLATFORM               = 'google_ads';
-	public const API_VERSION            = 'v19';
+	public const DEFAULT_API_VERSION    = 'v20';
 	public const API_BASE               = 'https://googleads.googleapis.com/';
 	public const TOKEN_URL              = 'https://oauth2.googleapis.com/token';
 	public const ACCESS_TOKEN_TRANSIENT = 'leadstream_gads_access_token';
@@ -65,7 +65,7 @@ final class GoogleAds {
 
 		$creds   = self::creds();
 		$payload = self::build_payload( $row, $creds );
-		$url     = self::API_BASE . self::API_VERSION . '/customers/' . rawurlencode( $creds['customer_id'] ) . ':uploadClickConversions';
+		$url     = self::API_BASE . $creds['api_version'] . '/customers/' . rawurlencode( $creds['customer_id'] ) . ':uploadClickConversions';
 
 		$headers = array(
 			'Authorization'   => 'Bearer ' . $access,
@@ -195,6 +195,10 @@ final class GoogleAds {
 	}
 
 	public static function creds(): array {
+		$api_version = (string) get_option( 'leadstream_gads_api_version', self::DEFAULT_API_VERSION );
+		if ( '' === $api_version || ! preg_match( '/^v\d+$/', $api_version ) ) {
+			$api_version = self::DEFAULT_API_VERSION;
+		}
 		return array(
 			'developer_token'   => (string) get_option( 'leadstream_gads_developer_token', '' ),
 			'refresh_token'     => (string) get_option( 'leadstream_gads_refresh_token', '' ),
@@ -205,6 +209,7 @@ final class GoogleAds {
 			'conversion_action' => (string) get_option( 'leadstream_gads_conversion_action', '' ),
 			'default_value'     => (float) get_option( 'leadstream_gads_default_value', 0 ),
 			'currency'          => (string) get_option( 'leadstream_gads_currency', 'USD' ),
+			'api_version'       => $api_version,
 		);
 	}
 }
