@@ -184,6 +184,16 @@
 		'click_id', 'click_id_type', 'first_page', 'referrer'
 	];
 
+	// Platform-native click-ID field names. When a form uses one of these as
+	// the hidden input name (rather than LeadStream's canonical `click_id`),
+	// we fill it so integrations built around the native name work without
+	// requiring users to rename their fields. Kept in sync with CLICK_IDS.
+	var CLICK_ID_ALIASES = [
+		'gclid', 'dclid', 'gbraid', 'wbraid', 'gad_source',
+		'msclkid', 'fbclid', 'ttclid', 'twclid', 'li_fat_id',
+		'ScCid', 'epik'
+	];
+
 	function fillForm(form) {
 		if (!form || typeof form.querySelector !== 'function') return;
 		for (var i = 0; i < FIELD_KEYS.length; i++) {
@@ -194,6 +204,22 @@
 			if (field) {
 				field.value = value;
 				log('filled', field.name, '=', value);
+			}
+		}
+
+		// Also fill any field whose exact name matches the detected click-ID
+		// type (gclid, fbclid, msclkid, etc.). We only fill when the cookie's
+		// click_id_type matches the field name, so a gclid cookie never ends
+		// up populating a field named `fbclid` on a partially-migrated form.
+		// Exact-name match (input[name="..."]) so we do not accidentally
+		// overwrite fields like `gclid_captured_flag`.
+		var clickIdValue = getCookie('click_id');
+		var clickIdType  = getCookie('click_id_type');
+		if (clickIdValue && clickIdType && CLICK_ID_ALIASES.indexOf(clickIdType) !== -1) {
+			var aliasField = form.querySelector('input[name="' + clickIdType + '"]');
+			if (aliasField) {
+				aliasField.value = clickIdValue;
+				log('filled alias', aliasField.name, '=', clickIdValue);
 			}
 		}
 	}
