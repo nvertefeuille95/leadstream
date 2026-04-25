@@ -43,6 +43,8 @@ final class Assets {
 			'debug'             => (bool) ( $beta || get_option( 'leadstream_debug', false ) ),
 			'subdomainTracking' => (bool) get_option( 'leadstream_subdomain_tracking', false ),
 			'requireConsent'    => (bool) get_option( 'leadstream_require_consent', false ),
+			'restUrl'           => esc_url_raw( rest_url( Rest::NAMESPACE . Rest::ROUTE ) ),
+			'restNonce'         => wp_create_nonce( 'wp_rest' ),
 		);
 	}
 

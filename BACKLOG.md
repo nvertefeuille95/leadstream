@@ -1,5 +1,17 @@
 # LeadStream Backlog
 
+## Per-site setup notes
+
+When installing LeadStream on a new WordPress site (TBM, Ascend, future beta or Pro tenants), add this to the site's `wp-config.php` so the plugin can self-update from GitHub releases:
+
+```php
+define( 'LEADSTREAM_GH_TOKEN', 'ghp_yourPersonalAccessTokenWithRepoScope' );
+```
+
+The PAT needs `repo` scope (read access to the private leadstream repo). PUC checks for new releases every 12 hours; admins see "Update available" in the WP plugins screen and click to update like any other plugin.
+
+
+
 Tracking items beyond Phase 1 that are in scope but not yet built. Source of truth for "what's next" conversations. PROJECT_PLAN.md remains the long-form roadmap.
 
 ## Priority: Hyros-parity (Phase 3 + 4)

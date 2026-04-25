@@ -135,10 +135,56 @@
 
 	function capture() {
 		if (!consentGranted()) { log('consent not granted'); return; }
+
+		// Cookies already exist (PHP-side capture, REST capture, or earlier visit)?
+		// Don't rewrite them with document.cookie. On Safari, rewriting reclassifies
+		// HTTP-set cookies as DOM-set, triggering ITP's hard 7-day creation cap.
+		if (getCookie('utm_source')) {
+			log('cookies already present, preserving HTTP-set lifetime');
+			try { sessionStorage.setItem(STORAGE_KEY, '1'); } catch (e) {}
+			return;
+		}
+
 		try {
 			if (sessionStorage.getItem(STORAGE_KEY) === '1') { log('already captured'); return; }
 		} catch (e) { /* sessionStorage disabled; proceed */ }
 
+		// Prefer the REST endpoint so cookies land via Set-Cookie HTTP header
+		// (ITP-friendly). Fall back to client-side document.cookie if REST is
+		// unavailable (network error, plugin REST disabled, fetch unsupported).
+		captureViaRest().catch(function (err) {
+			log('REST capture failed, falling back to client-side', err);
+			captureClientSide();
+		});
+	}
+
+	function captureViaRest() {
+		if (typeof window.fetch !== 'function' || !cfg.restUrl || !cfg.restNonce) {
+			return Promise.reject('REST unavailable or not configured');
+		}
+		var body = JSON.stringify({
+			url: location.href,
+			referrer: document.referrer || ''
+		});
+		return fetch(cfg.restUrl, {
+			method: 'POST',
+			credentials: 'same-origin',
+			headers: {
+				'Content-Type': 'application/json',
+				'X-WP-Nonce': cfg.restNonce
+			},
+			body: body
+		}).then(function (response) {
+			if (!response.ok) {
+				throw new Error('REST capture returned ' + response.status);
+			}
+			try { sessionStorage.setItem(STORAGE_KEY, '1'); } catch (e) {}
+			log('REST capture succeeded');
+			return response;
+		});
+	}
+
+	function captureClientSide() {
 		var utmSource   = getParam('utm_source');
 		var utmMedium   = getParam('utm_medium');
 		var utmCampaign = getParam('utm_campaign');

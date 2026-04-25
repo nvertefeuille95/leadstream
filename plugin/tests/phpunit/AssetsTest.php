@@ -52,6 +52,12 @@ final class AssetsTest extends TestCase {
 				return $default;
 			}
 		);
+		WP_Mock::userFunction( 'rest_url' )->andReturnUsing(
+			static function ( $path = '' ) {
+				return 'https://example.com/wp-json/' . ltrim( (string) $path, '/' );
+			}
+		);
+		WP_Mock::userFunction( 'wp_create_nonce' )->andReturn( 'test-nonce-abc' );
 
 		$_SERVER['HTTP_HOST'] = 'example.com';
 		$config               = Assets::js_config();
@@ -61,9 +67,14 @@ final class AssetsTest extends TestCase {
 		$this->assertArrayHasKey( 'debug', $config );
 		$this->assertArrayHasKey( 'subdomainTracking', $config );
 		$this->assertArrayHasKey( 'requireConsent', $config );
+		$this->assertArrayHasKey( 'restUrl', $config );
+		$this->assertArrayHasKey( 'restNonce', $config );
 		$this->assertSame( 'leadstream_', $config['cookiePrefix'] );
 		$this->assertSame( 30, $config['cookieDuration'] );
 		$this->assertFalse( $config['debug'] );
+		$this->assertStringContainsString( 'leadstream/v1', $config['restUrl'] );
+		$this->assertStringContainsString( 'capture', $config['restUrl'] );
+		$this->assertSame( 'test-nonce-abc', $config['restNonce'] );
 	}
 
 	public function test_js_config_forces_debug_on_beta_domain(): void {
@@ -72,6 +83,8 @@ final class AssetsTest extends TestCase {
 				return $default;
 			}
 		);
+		WP_Mock::userFunction( 'rest_url' )->andReturn( 'https://example.com/wp-json/leadstream/v1/capture' );
+		WP_Mock::userFunction( 'wp_create_nonce' )->andReturn( 'test-nonce' );
 
 		$_SERVER['HTTP_HOST'] = 'timberbrookmarketing.com';
 		$config               = Assets::js_config();
