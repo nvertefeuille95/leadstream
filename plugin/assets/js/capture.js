@@ -134,7 +134,7 @@
 	}
 
 	function capture() {
-		if (!consentGranted()) { log('consent not granted'); return; }
+		if (!consentGranted()) { log('consent not granted'); return Promise.resolve(); }
 
 		// Cookies already exist (PHP-side capture, REST capture, or earlier visit)?
 		// Don't rewrite them with document.cookie. On Safari, rewriting reclassifies
@@ -142,17 +142,17 @@
 		if (getCookie('utm_source')) {
 			log('cookies already present, preserving HTTP-set lifetime');
 			try { sessionStorage.setItem(STORAGE_KEY, '1'); } catch (e) {}
-			return;
+			return Promise.resolve();
 		}
 
 		try {
-			if (sessionStorage.getItem(STORAGE_KEY) === '1') { log('already captured'); return; }
+			if (sessionStorage.getItem(STORAGE_KEY) === '1') { log('already captured'); return Promise.resolve(); }
 		} catch (e) { /* sessionStorage disabled; proceed */ }
 
 		// Prefer the REST endpoint so cookies land via Set-Cookie HTTP header
 		// (ITP-friendly). Fall back to client-side document.cookie if REST is
 		// unavailable (network error, plugin REST disabled, fetch unsupported).
-		captureViaRest().catch(function (err) {
+		return captureViaRest().catch(function (err) {
 			log('REST capture failed, falling back to client-side', err);
 			captureClientSide();
 		});
@@ -275,23 +275,121 @@
 		for (var i = 0; i < forms.length; i++) fillForm(forms[i]);
 	}
 
-	capture();
+	// Universal injection: add attribution as hidden inputs to every form on
+	// the page, not just Elementor and Gravity. Handles CF7, WPForms, Ninja,
+	// Fluent, custom HTML forms, and any third-party form whose backend
+	// accepts extra POST fields without complaint (which is nearly all of
+	// them). Skipped for GET forms (search) and standard WP forms (login,
+	// register, comment) where attribution would be noise.
+	var UNIVERSAL_INJECT_KEYS = [
+		'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+		'click_id', 'first_page', 'referrer'
+	];
+	var UNIVERSAL_SKIP_FORM_IDS = /^(loginform|registerform|lostpasswordform|resetpassform|commentform|searchform|adminbar-search)$/i;
 
-	if (document.readyState === 'loading') {
-		document.addEventListener('DOMContentLoaded', fillKnownForms);
-	} else {
-		fillKnownForms();
+	function shouldUniversalInject(form) {
+		if (!form || typeof form.appendChild !== 'function') return false;
+		var method = (form.getAttribute('method') || 'get').toLowerCase();
+		if (method === 'get') return false;
+		if (form.id && UNIVERSAL_SKIP_FORM_IDS.test(form.id)) return false;
+		return true;
 	}
+
+	function ensureHiddenInput(form, name, value) {
+		if (!value || form.querySelector('input[name="' + name + '"]')) return;
+		var input = document.createElement('input');
+		input.type  = 'hidden';
+		input.name  = name;
+		input.value = value;
+		input.setAttribute('data-leadstream-injected', '1');
+		form.appendChild(input);
+	}
+
+	function injectAttribution(form) {
+		if (!shouldUniversalInject(form)) return;
+
+		for (var i = 0; i < UNIVERSAL_INJECT_KEYS.length; i++) {
+			var key   = UNIVERSAL_INJECT_KEYS[i];
+			var value = getCookie(key);
+			if (key === 'first_page' && !value) value = location.href;
+			ensureHiddenInput(form, key, value);
+		}
+
+		var clickIdValue = getCookie('click_id');
+		var clickIdType  = getCookie('click_id_type');
+		if (clickIdValue && clickIdType && CLICK_ID_ALIASES.indexOf(clickIdType) !== -1) {
+			ensureHiddenInput(form, clickIdType, clickIdValue);
+		}
+	}
+
+	function injectIntoAllForms() {
+		var forms = document.querySelectorAll('form');
+		for (var i = 0; i < forms.length; i++) injectAttribution(forms[i]);
+	}
+
+	function watchForNewForms() {
+		if (typeof window.MutationObserver !== 'function') return;
+		var observer = new MutationObserver(function (mutations) {
+			for (var i = 0; i < mutations.length; i++) {
+				var added = mutations[i].addedNodes;
+				for (var j = 0; j < added.length; j++) {
+					var node = added[j];
+					if (!node || node.nodeType !== 1) continue;
+					if (node.tagName === 'FORM') {
+						injectAttribution(node);
+					} else if (typeof node.querySelectorAll === 'function') {
+						var nested = node.querySelectorAll('form');
+						for (var k = 0; k < nested.length; k++) injectAttribution(nested[k]);
+					}
+				}
+			}
+		});
+		observer.observe(document.body, { childList: true, subtree: true });
+	}
+
+	function processForms() {
+		fillKnownForms();
+		if (cfg.universalInject !== false) {
+			injectIntoAllForms();
+			watchForNewForms();
+		}
+	}
+
+	function onReady(fn) {
+		if (document.readyState === 'loading') {
+			document.addEventListener('DOMContentLoaded', fn);
+		} else {
+			fn();
+		}
+	}
+
+	// Capture returns a Promise; chain processForms after it settles so cookies
+	// are guaranteed set before we read them. On cached pages where REST is
+	// the only capture path, this prevents a race where forms get processed
+	// before the Set-Cookie response arrives.
+	var captureReady = capture();
+	if (!captureReady || typeof captureReady.then !== 'function') {
+		captureReady = Promise.resolve();
+	}
+	onReady(function () {
+		captureReady.then(processForms, processForms);
+	});
 
 	if (typeof window.jQuery !== 'undefined') {
 		// Elementor Pro forms rendered after initial DOM (popups, lazy-loaded sections).
 		window.jQuery(document).on('elementor-pro/forms/new', function (event, form) {
-			if (form && form.$el && form.$el[0]) fillForm(form.$el[0]);
+			if (form && form.$el && form.$el[0]) {
+				fillForm(form.$el[0]);
+				injectAttribution(form.$el[0]);
+			}
 		});
 		// Gravity Forms re-renders its wrapper after AJAX submit and pagination.
 		window.jQuery(document).on('gform_post_render', function (event, formId) {
 			var form = document.getElementById('gform_' + formId);
-			if (form) fillForm(form);
+			if (form) {
+				fillForm(form);
+				injectAttribution(form);
+			}
 		});
 	}
 })();

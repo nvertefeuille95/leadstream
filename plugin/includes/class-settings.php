@@ -111,6 +111,15 @@ final class Settings {
 				'sanitize_callback' => array( __CLASS__, 'sanitize_bool' ),
 			)
 		);
+		register_setting(
+			self::OPTION_GROUP,
+			'leadstream_universal_inject',
+			array(
+				'type'              => 'boolean',
+				'default'           => true,
+				'sanitize_callback' => array( __CLASS__, 'sanitize_bool' ),
+			)
+		);
 
 		$platform_string_options = array(
 			'leadstream_gads_developer_token',
@@ -229,6 +238,14 @@ final class Settings {
 			'leadstream_elementor_auto_inject',
 			__( 'Auto-inject into Elementor submissions', 'leadstream' ),
 			array( __CLASS__, 'field_elementor_auto_inject' ),
+			self::PAGE_SLUG,
+			self::SECTION_FORMS
+		);
+
+		add_settings_field(
+			'leadstream_universal_inject',
+			__( 'Universal form injection (all form plugins)', 'leadstream' ),
+			array( __CLASS__, 'field_universal_inject' ),
 			self::PAGE_SLUG,
 			self::SECTION_FORMS
 		);
@@ -368,6 +385,15 @@ final class Settings {
 			'<label><input type="checkbox" name="leadstream_elementor_auto_inject" value="1" %s /> %s</label>',
 			checked( $value, true, false ),
 			esc_html__( 'Add leadstream_ prefixed fields to every Elementor Pro form submission so notifications, webhooks, and integrations include attribution without hidden fields on the form.', 'leadstream' )
+		);
+	}
+
+	public static function field_universal_inject(): void {
+		$value = (bool) get_option( 'leadstream_universal_inject', true );
+		printf(
+			'<label><input type="checkbox" name="leadstream_universal_inject" value="1" %s /> %s</label>',
+			checked( $value, true, false ),
+			esc_html__( 'JS-inject hidden attribution fields (utm_source, click_id, gclid/fbclid alias, etc.) into every form on the page, no matter the plugin. Skips GET forms (search) and standard WP forms (login/comment). Watches for forms added by popups or AJAX. Disable if a form rejects unexpected fields.', 'leadstream' )
 		);
 	}
 

@@ -45,6 +45,7 @@ final class Assets {
 			'requireConsent'    => (bool) get_option( 'leadstream_require_consent', false ),
 			'restUrl'           => esc_url_raw( rest_url( Rest::NAMESPACE . Rest::ROUTE ) ),
 			'restNonce'         => wp_create_nonce( 'wp_rest' ),
+			'universalInject'   => (bool) get_option( 'leadstream_universal_inject', true ),
 		);
 	}
 

@@ -69,6 +69,7 @@ final class AssetsTest extends TestCase {
 		$this->assertArrayHasKey( 'requireConsent', $config );
 		$this->assertArrayHasKey( 'restUrl', $config );
 		$this->assertArrayHasKey( 'restNonce', $config );
+		$this->assertArrayHasKey( 'universalInject', $config );
 		$this->assertSame( 'leadstream_', $config['cookiePrefix'] );
 		$this->assertSame( 30, $config['cookieDuration'] );
 		$this->assertFalse( $config['debug'] );
