@@ -20,12 +20,12 @@ final class Admin {
 	}
 
 	/**
-	 * Inline SVG menu icon. A stylized droplet (LeadStream "flow") rendered
-	 * in a leaf-like outline (Timberbrook "natural"). 20x20 viewBox so it
-	 * sits cleanly in the WP admin sidebar at any zoom.
+	 * Inline SVG menu icon. Mirrors the Timberbrook brandmark: a horizontal
+	 * hexagon outline with an upward-pointing arrow inside. Single path with
+	 * evenodd fill so WP admin menu CSS can recolor it via filter.
 	 */
 	public static function menu_icon(): string {
-		$svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="black"><path d="M10 2C7 5 4.5 8 4.5 11.5a5.5 5.5 0 0 0 11 0C15.5 8 13 5 10 2zm0 3.4c1.6 1.9 3.5 4.2 3.5 6.1a3.5 3.5 0 1 1-7 0c0-1.9 1.9-4.2 3.5-6.1z"/></svg>';
+		$svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill-rule="evenodd"><path fill="black" d="M5 3L15 3L19 10L15 17L5 17L1 10ZM5.5 4.5L14.5 4.5L17.5 10L14.5 15.5L5.5 15.5L2.5 10ZM10 6L5.5 9.5L8 9.5L8 14L12 14L12 9.5L14.5 9.5Z"/></svg>';
 		// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode -- WP admin menu icons use data: URIs; this is the standard idiom.
 		return 'data:image/svg+xml;base64,' . base64_encode( $svg );
 	}
