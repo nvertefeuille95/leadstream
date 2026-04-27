@@ -253,19 +253,24 @@
 			}
 		}
 
-		// Also fill any field whose exact name matches the detected click-ID
-		// type (gclid, fbclid, msclkid, etc.). We only fill when the cookie's
+		// Also fill any field whose name matches the detected click-ID type
+		// (gclid, fbclid, msclkid, etc.). We only fill when the cookie's
 		// click_id_type matches the field name, so a gclid cookie never ends
 		// up populating a field named `fbclid` on a partially-migrated form.
-		// Exact-name match (input[name="..."]) so we do not accidentally
-		// overwrite fields like `gclid_captured_flag`.
+		// Two patterns supported:
+		//   1. Exact name: `<input name="gclid">` (vanilla HTML, CF7, WPForms)
+		//   2. Bracketed:  `<input name="form_fields[gclid]">` (Elementor Pro)
+		// Both anchor to a complete field name segment so we still avoid
+		// clobbering fields like `gclid_captured_flag`.
 		var clickIdValue = getCookie('click_id');
 		var clickIdType  = getCookie('click_id_type');
 		if (clickIdValue && clickIdType && CLICK_ID_ALIASES.indexOf(clickIdType) !== -1) {
-			var aliasField = form.querySelector('input[name="' + clickIdType + '"]');
-			if (aliasField) {
-				aliasField.value = clickIdValue;
-				log('filled alias', aliasField.name, '=', clickIdValue);
+			var aliasFields = form.querySelectorAll(
+				'input[name="' + clickIdType + '"], input[name$="[' + clickIdType + ']"]'
+			);
+			for (var a = 0; a < aliasFields.length; a++) {
+				aliasFields[a].value = clickIdValue;
+				log('filled alias', aliasFields[a].name, '=', clickIdValue);
 			}
 		}
 	}
@@ -296,7 +301,14 @@
 	}
 
 	function ensureHiddenInput(form, name, value) {
-		if (!value || form.querySelector('input[name="' + name + '"]')) return;
+		if (!value) return;
+		// Dedupe against both vanilla and bracketed (Elementor) naming so we
+		// do not stack a redundant `<input name="gclid">` next to an existing
+		// `<input name="form_fields[gclid]">`.
+		var existing = form.querySelector(
+			'input[name="' + name + '"], input[name$="[' + name + ']"]'
+		);
+		if (existing) return;
 		var input = document.createElement('input');
 		input.type  = 'hidden';
 		input.name  = name;
