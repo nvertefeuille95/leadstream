@@ -15,85 +15,22 @@ defined( 'ABSPATH' ) || exit;
 
 final class ElementorForms {
 
-	public const FIELDS_TO_INJECT = array(
-		array(
-			'custom_id' => 'gclid',
-			'label'     => 'GCLID',
-		),
-		array(
-			'custom_id' => 'utm_source',
-			'label'     => 'UTM Source',
-		),
-		array(
-			'custom_id' => 'utm_medium',
-			'label'     => 'UTM Medium',
-		),
-		array(
-			'custom_id' => 'utm_campaign',
-			'label'     => 'UTM Campaign',
-		),
-		array(
-			'custom_id' => 'utm_term',
-			'label'     => 'UTM Term',
-		),
-		array(
-			'custom_id' => 'utm_content',
-			'label'     => 'UTM Content',
-		),
-		array(
-			'custom_id' => 'first_page',
-			'label'     => 'First Page',
-		),
-	);
-
 	public static function register(): void {
 		if ( ! self::is_active() ) {
 			return;
 		}
-		add_action( 'elementor_pro/forms/new_record', array( __CLASS__, 'inject_attribution' ), 5, 1 );
+		// Inject at process time (after validation, BEFORE form actions run).
+		// This lets the built-in Webhook, Email, and integration actions see
+		// the runtime-added fields in $record->get('fields') when they build
+		// their payloads. Hooking new_record (where we hooked previously)
+		// fires AFTER actions have already run, so webhook payloads to
+		// LeadSimple etc. did not include attribution.
+		add_action( 'elementor_pro/forms/process', array( __CLASS__, 'inject_attribution' ), 5, 1 );
+
+		// record_submission writes to our own events table and queues
+		// Google Ads uploads. Runs after actions complete; that timing is
+		// fine because it does not need to influence outgoing webhooks.
 		add_action( 'elementor_pro/forms/new_record', array( __CLASS__, 'record_submission' ), 20, 1 );
-		add_filter( 'elementor_pro/forms/pre_render', array( __CLASS__, 'inject_form_fields' ) );
-	}
-
-	/**
-	 * Append attribution hidden fields to the form definition at render time.
-	 * Mirrors the gform_pre_render injection we already do for Gravity forms.
-	 * Fields persist downstream into Elementor Submissions, webhook payloads,
-	 * and third-party integrations (LeadSimple, HubSpot, Mailchimp).
-	 *
-	 * @param mixed $form_data Form widget settings array.
-	 * @return mixed
-	 */
-	public static function inject_form_fields( $form_data ) {
-		if ( ! get_option( 'leadstream_elementor_auto_inject', true ) ) {
-			return $form_data;
-		}
-		if ( ! is_array( $form_data ) || empty( $form_data['form_fields'] ) || ! is_array( $form_data['form_fields'] ) ) {
-			return $form_data;
-		}
-
-		$existing = array();
-		foreach ( $form_data['form_fields'] as $field ) {
-			if ( is_array( $field ) && isset( $field['custom_id'] ) ) {
-				$existing[] = (string) $field['custom_id'];
-			}
-		}
-
-		foreach ( self::FIELDS_TO_INJECT as $field ) {
-			if ( in_array( $field['custom_id'], $existing, true ) ) {
-				continue;
-			}
-			$form_data['form_fields'][] = array(
-				'_id'         => 'leadstream_' . $field['custom_id'],
-				'custom_id'   => $field['custom_id'],
-				'field_label' => $field['label'],
-				'field_type'  => 'hidden',
-				'required'    => '',
-				'width'       => '100',
-			);
-		}
-
-		return $form_data;
 	}
 
 	public static function is_active(): bool {

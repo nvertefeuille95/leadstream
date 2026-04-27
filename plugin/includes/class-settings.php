@@ -384,7 +384,7 @@ final class Settings {
 		printf(
 			'<label><input type="checkbox" name="leadstream_elementor_auto_inject" value="1" %s /> %s</label>',
 			checked( $value, true, false ),
-			esc_html__( 'Auto-add hidden attribution fields (gclid, utm_source, utm_medium, utm_campaign, utm_term, utm_content, first_page) to every Elementor Pro form at render time so they persist in Submissions, webhooks, and CRM integrations like LeadSimple. Skipped per-form when the admin already defined a matching field ID.', 'leadstream' )
+			esc_html__( 'Inject leadstream_ prefixed attribution fields into Elementor Pro submissions at process time, before form actions run. Webhook payloads, integrations, and email notifications that read from $record->get(\'fields\') will include the attribution. Elementor does not expose a hook for adding fields to the rendered HTML; for fields you also want visible in the admin Submissions UI, define them as hidden fields in the form builder.', 'leadstream' )
 		);
 	}
 
