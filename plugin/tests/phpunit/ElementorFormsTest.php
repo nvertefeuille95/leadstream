@@ -97,4 +97,51 @@ final class ElementorFormsTest extends TestCase {
 		ElementorForms::inject_attribution( $record );
 		$this->assertSame( '', $record->noop );
 	}
+
+	public function test_extract_email_finds_first_email_in_array_fields(): void {
+		$record = new FakeRecordWithFields(
+			array(
+				array( 'value' => 'Noah' ),
+				array( 'value' => '8606179614' ),
+				array( 'value' => 'noah@example.com' ),
+			)
+		);
+		$this->assertSame( 'noah@example.com', ElementorForms::extract_email_from_record( $record ) );
+	}
+
+	public function test_extract_email_handles_object_fields(): void {
+		$f1        = new \stdClass();
+		$f1->value = 'Noah';
+		$f2        = new \stdClass();
+		$f2->value = 'noah@example.com';
+		$record    = new FakeRecordWithFields( array( $f1, $f2 ) );
+		$this->assertSame( 'noah@example.com', ElementorForms::extract_email_from_record( $record ) );
+	}
+
+	public function test_extract_email_returns_empty_when_none_present(): void {
+		$record = new FakeRecordWithFields(
+			array(
+				array( 'value' => 'Noah' ),
+				array( 'value' => '8606179614' ),
+			)
+		);
+		$this->assertSame( '', ElementorForms::extract_email_from_record( $record ) );
+	}
+
+	public function test_extract_email_safe_on_unknown_record_shape(): void {
+		$this->assertSame( '', ElementorForms::extract_email_from_record( new \stdClass() ) );
+		$this->assertSame( '', ElementorForms::extract_email_from_record( null ) );
+	}
+}
+
+final class FakeRecordWithFields {
+	private array $fields;
+
+	public function __construct( array $fields ) {
+		$this->fields = $fields;
+	}
+
+	public function get( string $key ) {
+		return 'fields' === $key ? $this->fields : null;
+	}
 }

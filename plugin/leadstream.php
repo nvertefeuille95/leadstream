@@ -3,7 +3,7 @@
  * Plugin Name:       LeadStream by Timberbrook Marketing
  * Plugin URI:        https://leadstream.io
  * Description:       Attribution that flows through your whole funnel. Captures UTMs, click IDs, and referrer data; fills form hidden fields; and (Pro) pushes offline conversions back to ad platforms.
- * Version:           0.5.0
+ * Version:           0.5.1
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Timberbrook Marketing
@@ -18,7 +18,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'LEADSTREAM_VERSION', '0.5.0' );
+define( 'LEADSTREAM_VERSION', '0.5.1' );
 define( 'LEADSTREAM_FILE', __FILE__ );
 define( 'LEADSTREAM_PATH', plugin_dir_path( __FILE__ ) );
 define( 'LEADSTREAM_URL', plugin_dir_url( __FILE__ ) );
