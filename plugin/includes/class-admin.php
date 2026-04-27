@@ -19,6 +19,17 @@ final class Admin {
 		add_action( 'admin_menu', array( __CLASS__, 'add_menu' ), 5 );
 	}
 
+	/**
+	 * Inline SVG menu icon. A stylized droplet (LeadStream "flow") rendered
+	 * in a leaf-like outline (Timberbrook "natural"). 20x20 viewBox so it
+	 * sits cleanly in the WP admin sidebar at any zoom.
+	 */
+	public static function menu_icon(): string {
+		$svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="black"><path d="M10 2C7 5 4.5 8 4.5 11.5a5.5 5.5 0 0 0 11 0C15.5 8 13 5 10 2zm0 3.4c1.6 1.9 3.5 4.2 3.5 6.1a3.5 3.5 0 1 1-7 0c0-1.9 1.9-4.2 3.5-6.1z"/></svg>';
+		// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode -- WP admin menu icons use data: URIs; this is the standard idiom.
+		return 'data:image/svg+xml;base64,' . base64_encode( $svg );
+	}
+
 	public static function add_menu(): void {
 		add_menu_page(
 			__( 'LeadStream', 'leadstream' ),
@@ -26,7 +37,7 @@ final class Admin {
 			self::CAPABILITY,
 			self::MENU_SLUG,
 			array( __CLASS__, 'render_submissions' ),
-			'dashicons-filter',
+			self::menu_icon(),
 			30
 		);
 		add_submenu_page(
