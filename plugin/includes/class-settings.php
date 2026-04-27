@@ -384,7 +384,7 @@ final class Settings {
 		printf(
 			'<label><input type="checkbox" name="leadstream_elementor_auto_inject" value="1" %s /> %s</label>',
 			checked( $value, true, false ),
-			esc_html__( 'Add leadstream_ prefixed fields to every Elementor Pro form submission so notifications, webhooks, and integrations include attribution without hidden fields on the form.', 'leadstream' )
+			esc_html__( 'Auto-add hidden attribution fields (gclid, utm_source, utm_medium, utm_campaign, utm_term, utm_content, first_page) to every Elementor Pro form at render time so they persist in Submissions, webhooks, and CRM integrations like LeadSimple. Skipped per-form when the admin already defined a matching field ID.', 'leadstream' )
 		);
 	}
 
