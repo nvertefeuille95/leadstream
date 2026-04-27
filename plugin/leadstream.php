@@ -44,8 +44,8 @@ if ( file_exists( LEADSTREAM_PATH . 'vendor/autoload.php' ) ) {
 // LEADSTREAM_GH_TOKEN in wp-config.php with a PAT that has read access to
 // the (private) leadstream repo. PUC polls every 12 hours and surfaces
 // updates in WP admin like any wp.org plugin.
-if ( class_exists( '\YahnisElliott\PluginUpdateChecker\v5\PucFactory' ) ) {
-	$leadstream_update_checker = \YahnisElliott\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
+if ( class_exists( '\YahnisElsts\PluginUpdateChecker\v5\PucFactory' ) ) {
+	$leadstream_update_checker = \YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
 		'https://github.com/nvertefeuille95/leadstream/',
 		LEADSTREAM_FILE,
 		'leadstream'
