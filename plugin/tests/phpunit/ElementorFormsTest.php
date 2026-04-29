@@ -146,3 +146,4 @@ final class FakeRecordWithFields {
 		return 'fields' === $key ? $this->fields : null;
 	}
 }
+

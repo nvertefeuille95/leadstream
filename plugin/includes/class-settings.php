@@ -113,6 +113,15 @@ final class Settings {
 		);
 		register_setting(
 			self::OPTION_GROUP,
+			'leadstream_elementor_email_append',
+			array(
+				'type'              => 'boolean',
+				'default'           => false,
+				'sanitize_callback' => array( __CLASS__, 'sanitize_bool' ),
+			)
+		);
+		register_setting(
+			self::OPTION_GROUP,
 			'leadstream_universal_inject',
 			array(
 				'type'              => 'boolean',
@@ -238,6 +247,14 @@ final class Settings {
 			'leadstream_elementor_auto_inject',
 			__( 'Auto-inject into Elementor submissions', 'leadstream' ),
 			array( __CLASS__, 'field_elementor_auto_inject' ),
+			self::PAGE_SLUG,
+			self::SECTION_FORMS
+		);
+
+		add_settings_field(
+			'leadstream_elementor_email_append',
+			__( 'Append attribution to Elementor emails', 'leadstream' ),
+			array( __CLASS__, 'field_elementor_email_append' ),
 			self::PAGE_SLUG,
 			self::SECTION_FORMS
 		);
@@ -376,6 +393,15 @@ final class Settings {
 			'<label><input type="checkbox" name="leadstream_gf_auto_append_notifications" value="1" %s /> %s</label>',
 			checked( $value, true, false ),
 			esc_html__( 'Append captured attribution to the bottom of every Gravity Forms notification email.', 'leadstream' )
+		);
+	}
+
+	public static function field_elementor_email_append(): void {
+		$value = (bool) get_option( 'leadstream_elementor_email_append', false );
+		printf(
+			'<label><input type="checkbox" name="leadstream_elementor_email_append" value="1" %s /> %s</label>',
+			checked( $value, true, false ),
+			esc_html__( 'Append a parseable attribution block (gclid, source, medium, campaign, etc.) to every Elementor notification email body. Useful for CRMs that ingest leads via email parsing (LeadSimple, Follow Up Boss). Affects all Elementor emails on this site, including any user auto-responder, so leave off unless you specifically need the attribution to flow through email.', 'leadstream' )
 		);
 	}
 

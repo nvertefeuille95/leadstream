@@ -33,6 +33,7 @@ $options_to_drop = array(
 	'leadstream_gf_auto_inject',
 	'leadstream_gf_auto_append_notifications',
 	'leadstream_elementor_auto_inject',
+	'leadstream_elementor_email_append',
 	'leadstream_universal_inject',
 	'leadstream_gads_enabled',
 	'leadstream_gads_developer_token',

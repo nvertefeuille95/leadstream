@@ -20,17 +20,22 @@ final class ElementorForms {
 			return;
 		}
 		// Inject at process time (after validation, BEFORE form actions run).
-		// This lets the built-in Webhook, Email, and integration actions see
-		// the runtime-added fields in $record->get('fields') when they build
-		// their payloads. Hooking new_record (where we hooked previously)
-		// fires AFTER actions have already run, so webhook payloads to
-		// LeadSimple etc. did not include attribution.
+		// Adds fields to the record array. Useful for custom actions that
+		// iterate $record->get('fields'); does NOT affect the Email action's
+		// body or the Submissions UI, both of which read from the form's
+		// defined field list rather than the runtime record.
 		add_action( 'elementor_pro/forms/process', array( __CLASS__, 'inject_attribution' ), 5, 1 );
 
-		// record_submission writes to our own events table and queues
-		// Google Ads uploads. Runs after actions complete; that timing is
-		// fine because it does not need to influence outgoing webhooks.
+		// record_submission writes to our own events table and queues ad
+		// platform uploads. Runs after actions complete.
 		add_action( 'elementor_pro/forms/new_record', array( __CLASS__, 'record_submission' ), 20, 1 );
+
+		// Append attribution to Elementor notification email bodies. This is
+		// how attribution reaches CRMs that ingest leads via email parsing
+		// (LeadSimple, Follow Up Boss). Opt-in because it affects every
+		// Elementor email on the site, including user auto-responders if
+		// configured.
+		add_filter( 'elementor_pro/forms/wp_mail_message', array( __CLASS__, 'append_attribution_to_email' ) );
 	}
 
 	public static function is_active(): bool {
@@ -106,6 +111,54 @@ final class ElementorForms {
 				'email_hash'    => $email_hash,
 			)
 		);
+	}
+
+	/**
+	 * Append a parseable attribution block to Elementor notification emails.
+	 *
+	 * Format keeps each field on its own "Label: value" line so CRM email
+	 * parsers (LeadSimple, Follow Up Boss, regex-based pipelines) can pick
+	 * out individual values without HTML parsing. HTML body emails get a
+	 * preceded <br><br> separator; plain-text bodies just get newlines.
+	 */
+	public static function append_attribution_to_email( $email_text ) {
+		if ( ! is_string( $email_text ) ) {
+			return $email_text;
+		}
+		if ( ! get_option( 'leadstream_elementor_email_append', false ) ) {
+			return $email_text;
+		}
+
+		$cookies = \LeadStream\Cookies::all();
+		if ( empty( $cookies ) ) {
+			return $email_text;
+		}
+
+		$labels = array(
+			'utm_source'    => 'Source',
+			'utm_medium'    => 'Medium',
+			'utm_campaign'  => 'Campaign',
+			'utm_term'      => 'Term',
+			'utm_content'   => 'Content',
+			'click_id'      => 'Click ID',
+			'click_id_type' => 'Click ID Type',
+			'first_page'    => 'First Page',
+			'referrer'      => 'Referrer',
+		);
+
+		$is_html    = false !== stripos( $email_text, '<html' ) || false !== stripos( $email_text, '<br' );
+		$line_break = $is_html ? '<br />' : "\n";
+		$separator  = $is_html ? '<br /><br />' : "\n\n";
+
+		$lines   = array( '--- LeadStream Attribution ---' );
+		$lines[] = 'gclid: ' . ( ( ( $cookies['click_id_type'] ?? '' ) === 'gclid' ) ? ( $cookies['click_id'] ?? '' ) : '' );
+		foreach ( $labels as $key => $label ) {
+			if ( ! empty( $cookies[ $key ] ) ) {
+				$lines[] = $label . ': ' . $cookies[ $key ];
+			}
+		}
+
+		return $email_text . $separator . implode( $line_break, $lines );
 	}
 
 	public static function extract_email_from_record( $record ): string {
