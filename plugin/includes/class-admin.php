@@ -56,6 +56,143 @@ final class Admin {
 			'leadstream-uploads',
 			array( __CLASS__, 'render_uploads' )
 		);
+		add_submenu_page(
+			self::MENU_SLUG,
+			__( 'UTM Builder', 'leadstream' ),
+			__( 'UTM Builder', 'leadstream' ),
+			self::CAPABILITY,
+			'leadstream-utm-builder',
+			array( __CLASS__, 'render_utm_builder' )
+		);
+	}
+
+	public static function render_utm_builder(): void {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_die( esc_html__( 'You do not have permission to access this page.', 'leadstream' ) );
+		}
+
+		$single_url   = '';
+		$single_input = array();
+		$single_warns = array();
+		$bulk_input   = '';
+		$bulk_output  = '';
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$action = isset( $_POST['leadstream_utm_action'] ) ? sanitize_key( wp_unslash( $_POST['leadstream_utm_action'] ) ) : '';
+
+		if ( 'build' === $action || 'bulk' === $action ) {
+			check_admin_referer( 'leadstream_utm_builder' );
+		}
+
+		if ( 'build' === $action ) {
+			$single_input = array(
+				'base_url'     => isset( $_POST['base_url'] ) ? esc_url_raw( wp_unslash( $_POST['base_url'] ) ) : '',
+				'utm_source'   => isset( $_POST['utm_source'] ) ? sanitize_text_field( wp_unslash( $_POST['utm_source'] ) ) : '',
+				'utm_medium'   => isset( $_POST['utm_medium'] ) ? sanitize_text_field( wp_unslash( $_POST['utm_medium'] ) ) : '',
+				'utm_campaign' => isset( $_POST['utm_campaign'] ) ? sanitize_text_field( wp_unslash( $_POST['utm_campaign'] ) ) : '',
+				'utm_term'     => isset( $_POST['utm_term'] ) ? sanitize_text_field( wp_unslash( $_POST['utm_term'] ) ) : '',
+				'utm_content'  => isset( $_POST['utm_content'] ) ? sanitize_text_field( wp_unslash( $_POST['utm_content'] ) ) : '',
+			);
+			$single_url   = UtmBuilder::build( $single_input['base_url'], $single_input );
+			foreach ( array( 'utm_source', 'utm_medium', 'utm_campaign' ) as $field ) {
+				$value = $single_input[ $field ];
+				if ( '' === $value ) {
+					continue;
+				}
+				$drift = UtmBuilder::detect_taxonomy_drift( $value, UtmBuilder::known_values( $field ) );
+				if ( null !== $drift ) {
+					$single_warns[ $field ] = $drift;
+				}
+			}
+		} elseif ( 'bulk' === $action ) {
+			$bulk_input  = isset( $_POST['bulk_csv'] ) ? sanitize_textarea_field( wp_unslash( $_POST['bulk_csv'] ) ) : '';
+			$rows        = UtmBuilder::parse_bulk_csv( $bulk_input );
+			$bulk_output = UtmBuilder::generate_bulk_csv( $rows );
+		}
+
+		echo '<div class="wrap">';
+		echo '<h1>' . esc_html__( 'UTM Builder', 'leadstream' ) . '</h1>';
+		echo '<p>' . esc_html__( 'Generate consistently tagged campaign URLs. The plugin remembers values you have used before so you can keep your taxonomy clean (warns when "Google" creeps in next to "google").', 'leadstream' ) . '</p>';
+
+		echo '<h2>' . esc_html__( 'Single URL', 'leadstream' ) . '</h2>';
+		echo '<form method="post">';
+		wp_nonce_field( 'leadstream_utm_builder' );
+		echo '<input type="hidden" name="leadstream_utm_action" value="build" />';
+		echo '<table class="form-table" role="presentation"><tbody>';
+		self::utm_input_row( __( 'Base URL', 'leadstream' ), 'base_url', $single_input['base_url'] ?? '', __( 'The page you are tagging, e.g. https://timberbrookmarketing.com/services/', 'leadstream' ), array(), null );
+		foreach ( array(
+			'utm_source'   => array( __( 'Source', 'leadstream' ), __( 'Where the traffic comes from. Example: google, linkedin, newsletter.', 'leadstream' ) ),
+			'utm_medium'   => array( __( 'Medium', 'leadstream' ), __( 'Marketing medium. Example: cpc, social, email, organic.', 'leadstream' ) ),
+			'utm_campaign' => array( __( 'Campaign', 'leadstream' ), __( 'Specific promotion or campaign. Example: spring_2026, q2_launch.', 'leadstream' ) ),
+			'utm_term'     => array( __( 'Term (optional)', 'leadstream' ), __( 'Keyword, used mostly for paid search.', 'leadstream' ) ),
+			'utm_content'  => array( __( 'Content (optional)', 'leadstream' ), __( 'Variant identifier for A/B tests, e.g. cta_top vs cta_bottom.', 'leadstream' ) ),
+		) as $field => $meta ) {
+			$known = in_array( $field, array( 'utm_source', 'utm_medium', 'utm_campaign' ), true ) ? UtmBuilder::known_values( $field ) : array();
+			self::utm_input_row(
+				$meta[0],
+				$field,
+				$single_input[ $field ] ?? '',
+				$meta[1],
+				$known,
+				$single_warns[ $field ] ?? null
+			);
+		}
+		echo '</tbody></table>';
+		submit_button( __( 'Generate URL', 'leadstream' ) );
+		echo '</form>';
+
+		if ( '' !== $single_url ) {
+			echo '<h3>' . esc_html__( 'Generated URL', 'leadstream' ) . '</h3>';
+			echo '<p><code style="display:block;padding:10px;background:#f4f4f4;border:1px solid #ddd;word-break:break-all">' . esc_html( $single_url ) . '</code></p>';
+		}
+
+		echo '<hr style="margin:40px 0" />';
+		echo '<h2>' . esc_html__( 'Bulk CSV', 'leadstream' ) . '</h2>';
+		echo '<p>' . esc_html__( 'Paste a CSV with columns: base_url, utm_source, utm_medium, utm_campaign, utm_term (optional), utm_content (optional). Header row required. Output adds a tagged_url column you can paste into your campaign tracking sheet.', 'leadstream' ) . '</p>';
+		echo '<form method="post">';
+		wp_nonce_field( 'leadstream_utm_builder' );
+		echo '<input type="hidden" name="leadstream_utm_action" value="bulk" />';
+		echo '<p><textarea name="bulk_csv" rows="10" cols="80" class="large-text code" placeholder="base_url,utm_source,utm_medium,utm_campaign&#10;https://example.com/x,google,cpc,spring_2026">' . esc_textarea( $bulk_input ) . '</textarea></p>';
+		submit_button( __( 'Generate Bulk', 'leadstream' ) );
+		echo '</form>';
+
+		if ( '' !== $bulk_output ) {
+			echo '<h3>' . esc_html__( 'Output CSV', 'leadstream' ) . '</h3>';
+			echo '<p><textarea rows="10" cols="80" class="large-text code" readonly>' . esc_textarea( $bulk_output ) . '</textarea></p>';
+		}
+
+		echo '</div>';
+	}
+
+	private static function utm_input_row( string $label, string $name, string $value, string $help, array $datalist, ?string $drift_warning ): void {
+		echo '<tr>';
+		echo '<th scope="row"><label for="leadstream_utm_' . esc_attr( $name ) . '">' . esc_html( $label ) . '</label></th>';
+		echo '<td>';
+		$list_id = 'list_' . $name;
+		$type    = 'base_url' === $name ? 'url' : 'text';
+		printf(
+			'<input type="%1$s" id="leadstream_utm_%2$s" name="%2$s" value="%3$s" class="regular-text" %4$s />',
+			esc_attr( $type ),
+			esc_attr( $name ),
+			esc_attr( $value ),
+			! empty( $datalist ) ? 'list="' . esc_attr( $list_id ) . '"' : ''
+		);
+		if ( ! empty( $datalist ) ) {
+			echo '<datalist id="' . esc_attr( $list_id ) . '">';
+			foreach ( $datalist as $option ) {
+				echo '<option value="' . esc_attr( (string) $option ) . '"></option>';
+			}
+			echo '</datalist>';
+		}
+		echo ' <p class="description">' . esc_html( $help ) . '</p>';
+		if ( null !== $drift_warning ) {
+			printf(
+				'<p style="color:#b94a48"><strong>&#9888;</strong> %s <code>%s</code></p>',
+				esc_html__( 'You have used this value before with different casing:', 'leadstream' ),
+				esc_html( $drift_warning )
+			);
+		}
+		echo '</td></tr>';
 	}
 
 	public static function render_uploads(): void {
