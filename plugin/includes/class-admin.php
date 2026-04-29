@@ -64,6 +64,116 @@ final class Admin {
 			'leadstream-utm-builder',
 			array( __CLASS__, 'render_utm_builder' )
 		);
+		add_submenu_page(
+			self::MENU_SLUG,
+			__( 'Reports', 'leadstream' ),
+			__( 'Reports', 'leadstream' ),
+			self::CAPABILITY,
+			'leadstream-reports',
+			array( __CLASS__, 'render_reports' )
+		);
+	}
+
+	public static function render_reports(): void {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_die( esc_html__( 'You do not have permission to access this page.', 'leadstream' ) );
+		}
+
+		$default_to   = gmdate( 'Y-m-d' );
+		$default_from = gmdate( 'Y-m-d', strtotime( '-30 days' ) );
+
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only filter inputs.
+		$from  = isset( $_GET['from'] ) ? sanitize_text_field( wp_unslash( $_GET['from'] ) ) : $default_from;
+		$to    = isset( $_GET['to'] ) ? sanitize_text_field( wp_unslash( $_GET['to'] ) ) : $default_to;
+		$model = isset( $_GET['model'] ) ? sanitize_key( wp_unslash( $_GET['model'] ) ) : (string) get_option( 'leadstream_attribution_model', 'last' );
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+		if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $from ) ) {
+			$from = $default_from;
+		}
+		if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $to ) ) {
+			$to = $default_to;
+		}
+		if ( ! array_key_exists( $model, Settings::ATTRIBUTION_MODELS ) ) {
+			$model = 'last';
+		}
+
+		$events  = Reports::load_events_with_touches( $from, $to );
+		$summary = Reports::summary( $events );
+
+		echo '<div class="wrap">';
+		echo '<h1>' . esc_html__( 'LeadStream Reports', 'leadstream' ) . '</h1>';
+
+		// Filter form.
+		echo '<form method="get" style="margin:20px 0">';
+		echo '<input type="hidden" name="page" value="leadstream-reports" />';
+		echo '<label>' . esc_html__( 'From', 'leadstream' ) . ' <input type="date" name="from" value="' . esc_attr( $from ) . '" /></label> ';
+		echo '<label>' . esc_html__( 'To', 'leadstream' ) . ' <input type="date" name="to" value="' . esc_attr( $to ) . '" /></label> ';
+		echo '<label>' . esc_html__( 'Model', 'leadstream' ) . ' <select name="model">';
+		foreach ( Settings::ATTRIBUTION_MODELS as $key => $label ) {
+			printf(
+				'<option value="%1$s"%2$s>%3$s</option>',
+				esc_attr( $key ),
+				selected( $model, $key, false ),
+				esc_html( $label )
+			);
+		}
+		echo '</select></label> ';
+		submit_button( __( 'Apply', 'leadstream' ), 'primary', 'submit', false );
+		echo '</form>';
+
+		// Summary tiles.
+		echo '<div style="display:flex;gap:16px;margin-bottom:30px;flex-wrap:wrap">';
+		self::summary_tile( __( 'Conversions', 'leadstream' ), (string) $summary['conversions'] );
+		self::summary_tile( __( 'Unique Visitors', 'leadstream' ), (string) $summary['unique_visitors'] );
+		self::summary_tile( __( 'Avg Touches per Conversion', 'leadstream' ), (string) $summary['avg_touches_per_conversion'] );
+		echo '</div>';
+
+		if ( 0 === $summary['conversions'] ) {
+			echo '<p>' . esc_html__( 'No conversions in this date range. Try widening the dates or check back after a few form submissions.', 'leadstream' ) . '</p>';
+			echo '</div>';
+			return;
+		}
+
+		// Per-dimension breakdowns.
+		foreach ( Reports::DIMENSIONS as $dimension => $label ) {
+			$rows = Reports::aggregate( $events, $model, $dimension );
+			self::render_dimension_table( $label, $rows );
+		}
+
+		echo '</div>';
+	}
+
+	private static function summary_tile( string $label, string $value ): void {
+		echo '<div style="background:#fff;padding:16px 20px;border:1px solid #c3c4c7;border-radius:4px;min-width:180px">';
+		echo '<div style="color:#646970;font-size:13px;margin-bottom:6px">' . esc_html( $label ) . '</div>';
+		echo '<div style="font-size:24px;font-weight:600">' . esc_html( $value ) . '</div>';
+		echo '</div>';
+	}
+
+	private static function render_dimension_table( string $label, array $rows ): void {
+		echo '<h2>' . esc_html( $label ) . '</h2>';
+		if ( empty( $rows ) ) {
+			echo '<p>' . esc_html__( 'No data.', 'leadstream' ) . '</p>';
+			return;
+		}
+		echo '<table class="wp-list-table widefat striped" style="max-width:800px;margin-bottom:30px">';
+		echo '<thead><tr>';
+		echo '<th style="width:50%">' . esc_html( $label ) . '</th>';
+		echo '<th style="width:15%">' . esc_html__( 'Conversions', 'leadstream' ) . '</th>';
+		echo '<th style="width:15%">' . esc_html__( 'Share', 'leadstream' ) . '</th>';
+		echo '<th>&nbsp;</th>';
+		echo '</tr></thead><tbody>';
+		foreach ( $rows as $row ) {
+			$pct = (float) ( $row['percentage'] ?? 0 );
+			echo '<tr>';
+			echo '<td>' . esc_html( (string) ( $row['value'] ?? '' ) ) . '</td>';
+			echo '<td>' . esc_html( (string) ( $row['conversions'] ?? 0 ) ) . '</td>';
+			echo '<td>' . esc_html( (string) $pct ) . '%</td>';
+			echo '<td><div style="background:#2271b1;height:14px;width:' . esc_attr( (string) $pct ) . '%;border-radius:2px"></div></td>';
+			echo '</tr>';
+		}
+		echo '</tbody></table>';
 	}
 
 	public static function render_utm_builder(): void {
