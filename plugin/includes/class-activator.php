@@ -11,12 +11,13 @@ defined( 'ABSPATH' ) || exit;
 
 final class Activator {
 
-	public const SCHEMA_VERSION        = '2';
+	public const SCHEMA_VERSION        = '3';
 	public const SCHEMA_VERSION_OPTION = 'leadstream_schema_version';
 
 	public static function activate(): void {
 		self::create_events_table();
 		self::create_uploads_table();
+		self::create_touches_table();
 		update_option( self::SCHEMA_VERSION_OPTION, self::SCHEMA_VERSION );
 	}
 
@@ -33,6 +34,7 @@ final class Activator {
 		$sql = "CREATE TABLE {$table_name} (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			event_id VARCHAR(64) NOT NULL,
+			visitor_id VARCHAR(64) DEFAULT NULL,
 			session_id VARCHAR(64) DEFAULT NULL,
 			utm_source VARCHAR(255) DEFAULT NULL,
 			utm_medium VARCHAR(255) DEFAULT NULL,
@@ -52,6 +54,7 @@ final class Activator {
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			UNIQUE KEY event_id (event_id),
+			KEY visitor_id (visitor_id),
 			KEY created_at (created_at),
 			KEY click_id (click_id(191))
 		) {$charset_collate};";
@@ -83,6 +86,39 @@ final class Activator {
 			PRIMARY KEY  (id),
 			UNIQUE KEY event_platform (event_id, platform),
 			KEY status_retry (status, next_retry_at)
+		) {$charset_collate};";
+
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+		dbDelta( $sql );
+	}
+
+	private static function create_touches_table(): void {
+		global $wpdb;
+
+		$table_name      = $wpdb->prefix . 'leadstream_touches';
+		$charset_collate = $wpdb->get_charset_collate();
+
+		$sql = "CREATE TABLE {$table_name} (
+			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			visitor_id VARCHAR(64) NOT NULL,
+			touch_id VARCHAR(64) NOT NULL,
+			utm_source VARCHAR(255) DEFAULT NULL,
+			utm_medium VARCHAR(255) DEFAULT NULL,
+			utm_campaign VARCHAR(255) DEFAULT NULL,
+			utm_term VARCHAR(255) DEFAULT NULL,
+			utm_content VARCHAR(255) DEFAULT NULL,
+			click_id VARCHAR(512) DEFAULT NULL,
+			click_id_type VARCHAR(32) DEFAULT NULL,
+			referrer TEXT DEFAULT NULL,
+			page_url TEXT DEFAULT NULL,
+			ip_hash VARCHAR(64) DEFAULT NULL,
+			user_agent TEXT DEFAULT NULL,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			UNIQUE KEY touch_id (touch_id),
+			KEY visitor_id (visitor_id),
+			KEY visitor_created (visitor_id, created_at),
+			KEY created_at (created_at)
 		) {$charset_collate};";
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';

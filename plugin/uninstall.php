@@ -18,9 +18,11 @@ global $wpdb;
 
 $events  = $wpdb->prefix . 'leadstream_events';
 $uploads = $wpdb->prefix . 'leadstream_uploads';
+$touches = $wpdb->prefix . 'leadstream_touches';
 
 $wpdb->query( "DROP TABLE IF EXISTS {$events}" );  // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
 $wpdb->query( "DROP TABLE IF EXISTS {$uploads}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
+$wpdb->query( "DROP TABLE IF EXISTS {$touches}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
 
 $options_to_drop = array(
 	'leadstream_schema_version',
@@ -35,6 +37,8 @@ $options_to_drop = array(
 	'leadstream_elementor_auto_inject',
 	'leadstream_elementor_email_append',
 	'leadstream_universal_inject',
+	'leadstream_attribution_model',
+	'leadstream_touches_retention_days',
 	'leadstream_gads_enabled',
 	'leadstream_gads_developer_token',
 	'leadstream_gads_refresh_token',

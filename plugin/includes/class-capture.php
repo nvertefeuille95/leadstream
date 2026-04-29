@@ -29,6 +29,12 @@ final class Capture {
 		$current_host = isset( $_SERVER['HTTP_HOST'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_HOST'] ) ) : '';
 
 		$data = Classifier::classify( $params, $referrer, $current_host );
+
+		// Refresh visitor cookie even when classify returns empty (internal nav)
+		// so the long-lived ID does not lapse for active users.
+		$visitor_id = Visitor::get_or_create();
+		Visitor::set_cookie( $visitor_id );
+
 		if ( empty( $data ) ) {
 			return;
 		}
@@ -48,7 +54,28 @@ final class Capture {
 			self::set_cookie( 'leadstream_referrer', $referrer, $expires );
 		}
 
+		Touches::record(
+			$visitor_id,
+			$data,
+			array(
+				'referrer'   => $referrer,
+				'page_url'   => $current_url,
+				'ip_hash'    => self::ip_hash(),
+				'user_agent' => self::user_agent(),
+			)
+		);
+
 		self::set_cookie( self::SESSION_COOKIE, '1', 0 );
+	}
+
+	private static function ip_hash(): string {
+		$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
+		return '' !== $ip ? hash( 'sha256', $ip ) : '';
+	}
+
+	private static function user_agent(): string {
+		$ua = isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '';
+		return '' !== $ua ? substr( $ua, 0, 500 ) : '';
 	}
 
 	private static function should_run(): bool {

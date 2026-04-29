@@ -14,12 +14,21 @@ defined( 'ABSPATH' ) || exit;
 
 final class Settings {
 
-	public const PAGE_SLUG         = 'leadstream-settings';
-	public const OPTION_GROUP      = 'leadstream_settings';
-	public const SECTION           = 'leadstream_capture';
-	public const SECTION_FORMS     = 'leadstream_forms';
-	public const SECTION_PLATFORMS = 'leadstream_platforms';
-	public const CAPABILITY        = 'manage_options';
+	public const PAGE_SLUG           = 'leadstream-settings';
+	public const OPTION_GROUP        = 'leadstream_settings';
+	public const SECTION             = 'leadstream_capture';
+	public const SECTION_FORMS       = 'leadstream_forms';
+	public const SECTION_ATTRIBUTION = 'leadstream_attribution';
+	public const SECTION_PLATFORMS   = 'leadstream_platforms';
+	public const CAPABILITY          = 'manage_options';
+
+	public const ATTRIBUTION_MODELS = array(
+		'last'     => 'Last-click',
+		'first'    => 'First-click',
+		'linear'   => 'Linear',
+		'position' => 'Position-based (40/20/40)',
+		'time'     => 'Time-decay',
+	);
 
 	public static function register(): void {
 		add_action( 'admin_menu', array( __CLASS__, 'add_menu' ) );
@@ -127,6 +136,24 @@ final class Settings {
 				'type'              => 'boolean',
 				'default'           => true,
 				'sanitize_callback' => array( __CLASS__, 'sanitize_bool' ),
+			)
+		);
+		register_setting(
+			self::OPTION_GROUP,
+			'leadstream_attribution_model',
+			array(
+				'type'              => 'string',
+				'default'           => 'last',
+				'sanitize_callback' => array( __CLASS__, 'sanitize_attribution_model' ),
+			)
+		);
+		register_setting(
+			self::OPTION_GROUP,
+			'leadstream_touches_retention_days',
+			array(
+				'type'              => 'integer',
+				'default'           => 365,
+				'sanitize_callback' => array( __CLASS__, 'sanitize_retention' ),
 			)
 		);
 
@@ -268,6 +295,29 @@ final class Settings {
 		);
 
 		add_settings_section(
+			self::SECTION_ATTRIBUTION,
+			__( 'Attribution', 'leadstream' ),
+			array( __CLASS__, 'render_attribution_section_intro' ),
+			self::PAGE_SLUG
+		);
+
+		add_settings_field(
+			'leadstream_attribution_model',
+			__( 'Attribution model', 'leadstream' ),
+			array( __CLASS__, 'field_attribution_model' ),
+			self::PAGE_SLUG,
+			self::SECTION_ATTRIBUTION
+		);
+
+		add_settings_field(
+			'leadstream_touches_retention_days',
+			__( 'Touch retention (days)', 'leadstream' ),
+			array( __CLASS__, 'field_touches_retention' ),
+			self::PAGE_SLUG,
+			self::SECTION_ATTRIBUTION
+		);
+
+		add_settings_section(
 			self::SECTION_PLATFORMS,
 			__( 'Ad platforms', 'leadstream' ),
 			array( __CLASS__, 'render_platforms_section_intro' ),
@@ -292,6 +342,46 @@ final class Settings {
 			return 0.0;
 		}
 		return round( (float) $value, 2 );
+	}
+
+	public static function sanitize_attribution_model( $value ): string {
+		$value = is_string( $value ) ? $value : 'last';
+		return array_key_exists( $value, self::ATTRIBUTION_MODELS ) ? $value : 'last';
+	}
+
+	public static function sanitize_retention( $value ): int {
+		if ( ! is_numeric( $value ) || (int) $value < 1 ) {
+			return 365;
+		}
+		return min( 3650, (int) $value );
+	}
+
+	public static function render_attribution_section_intro(): void {
+		echo '<p>' . esc_html__( 'Multi-touch attribution stores every meaningful visit (UTM-tagged, click-ID-tagged, or external referrer) in a touches table keyed to a long-lived visitor cookie. The configured model decides which touch gets credit on conversion. v0.8.0 captures the data; the journey view ships in v0.8.1 and the dashboard in v0.9.0.', 'leadstream' ) . '</p>';
+	}
+
+	public static function field_attribution_model(): void {
+		$current = (string) get_option( 'leadstream_attribution_model', 'last' );
+		echo '<select name="leadstream_attribution_model">';
+		foreach ( self::ATTRIBUTION_MODELS as $value => $label ) {
+			printf(
+				'<option value="%1$s"%2$s>%3$s</option>',
+				esc_attr( $value ),
+				selected( $current, $value, false ),
+				esc_html( $label )
+			);
+		}
+		echo '</select>';
+		echo ' <p class="description">' . esc_html__( 'Default last-click matches the current single-touch behavior. Other models become useful once the dashboard ships in v0.9.0.', 'leadstream' ) . '</p>';
+	}
+
+	public static function field_touches_retention(): void {
+		$value = (int) get_option( 'leadstream_touches_retention_days', 365 );
+		printf(
+			'<input type="number" name="leadstream_touches_retention_days" value="%d" min="1" max="3650" class="small-text" /> <p class="description">%s</p>',
+			esc_attr( (string) $value ),
+			esc_html__( 'How long to keep touch rows before pruning. Defaults to 365 days. The pruning cron worker lands in v0.8.1; until then this setting is informational.', 'leadstream' )
+		);
 	}
 
 	public static function render_platforms_section_intro(): void {

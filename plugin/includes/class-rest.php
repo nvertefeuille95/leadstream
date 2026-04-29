@@ -79,11 +79,19 @@ final class Rest {
 		$current_host = self::host_from_url( $url );
 
 		$data = Classifier::classify( $params, $referrer, $current_host );
+
+		// Visitor identity is set even on internal navigation so the cookie
+		// lifetime extends for active users. Only the touch record requires a
+		// meaningful classification.
+		$visitor_id = Visitor::get_or_create();
+		Visitor::set_cookie( $visitor_id );
+
 		if ( empty( $data ) ) {
 			return rest_ensure_response(
 				array(
-					'captured' => false,
-					'reason'   => 'internal',
+					'captured'   => false,
+					'reason'     => 'internal',
+					'visitor_id' => $visitor_id,
 				)
 			);
 		}
@@ -102,12 +110,35 @@ final class Rest {
 			self::set_cookie( 'leadstream_referrer', $referrer, $expires );
 		}
 
-		return rest_ensure_response(
+		// Record the touch (multi-touch attribution journey).
+		Touches::record(
+			$visitor_id,
+			$data,
 			array(
-				'captured' => true,
-				'fields'   => array_keys( $data ),
+				'referrer'   => $referrer,
+				'page_url'   => $url,
+				'ip_hash'    => self::ip_hash(),
+				'user_agent' => self::user_agent(),
 			)
 		);
+
+		return rest_ensure_response(
+			array(
+				'captured'   => true,
+				'fields'     => array_keys( $data ),
+				'visitor_id' => $visitor_id,
+			)
+		);
+	}
+
+	private static function ip_hash(): string {
+		$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
+		return '' !== $ip ? hash( 'sha256', $ip ) : '';
+	}
+
+	private static function user_agent(): string {
+		$ua = isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '';
+		return '' !== $ua ? substr( $ua, 0, 500 ) : '';
 	}
 
 	public static function extract_query_params( string $url ): array {

@@ -23,10 +23,12 @@ final class Events {
 	public static function record( array $overrides = array() ): int {
 		global $wpdb;
 
-		$cookies = Cookies::all();
-		$row     = array_merge(
+		$cookies    = Cookies::all();
+		$visitor_id = Visitor::current();
+		$row        = array_merge(
 			array(
 				'event_id'       => self::uuid(),
+				'visitor_id'     => '' !== $visitor_id ? $visitor_id : null,
 				'utm_source'     => $cookies['utm_source'] ?? null,
 				'utm_medium'     => $cookies['utm_medium'] ?? null,
 				'utm_campaign'   => $cookies['utm_campaign'] ?? null,
