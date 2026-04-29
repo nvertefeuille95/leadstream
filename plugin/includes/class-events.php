@@ -65,6 +65,22 @@ final class Events {
 		return false === $result ? 0 : (int) $wpdb->insert_id;
 	}
 
+	public static function find( int $id ): ?array {
+		global $wpdb;
+		if ( $id <= 0 ) {
+			return null;
+		}
+		$table = self::table();
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$row = $wpdb->get_row(
+			$wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $id ),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		return is_array( $row ) ? $row : null;
+	}
+
 	public static function recent( int $limit = 100 ): array {
 		global $wpdb;
 		$limit = max( 1, min( 500, $limit ) );

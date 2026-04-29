@@ -19,20 +19,33 @@ final class Worker {
 	public const SCHEDULE          = 'leadstream_fifteen_minutes';
 	public const SCHEDULE_INTERVAL = 900; // 15 * 60
 
+	public const PRUNE_HOOK = 'leadstream_prune_touches';
+
 	public static function register(): void {
 		add_filter( 'cron_schedules', array( __CLASS__, 'add_schedule' ) ); // phpcs:ignore WordPress.WP.CronInterval.ChangeDetected
 		add_action( self::HOOK, array( __CLASS__, 'run' ) );
+		add_action( self::PRUNE_HOOK, array( __CLASS__, 'prune' ) );
 
 		if ( ! wp_next_scheduled( self::HOOK ) ) {
 			wp_schedule_event( time() + 60, self::SCHEDULE, self::HOOK );
 		}
+		if ( ! wp_next_scheduled( self::PRUNE_HOOK ) ) {
+			wp_schedule_event( time() + 3600, 'daily', self::PRUNE_HOOK );
+		}
 	}
 
 	public static function unregister(): void {
-		$ts = wp_next_scheduled( self::HOOK );
-		if ( $ts ) {
-			wp_unschedule_event( $ts, self::HOOK );
+		foreach ( array( self::HOOK, self::PRUNE_HOOK ) as $hook ) {
+			$ts = wp_next_scheduled( $hook );
+			if ( $ts ) {
+				wp_unschedule_event( $ts, $hook );
+			}
 		}
+	}
+
+	public static function prune(): void {
+		$retention = (int) get_option( 'leadstream_touches_retention_days', 365 );
+		Touches::prune( $retention );
 	}
 
 	public static function add_schedule( $schedules ) {

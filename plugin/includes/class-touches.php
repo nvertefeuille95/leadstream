@@ -135,6 +135,20 @@ final class Touches {
 		return is_array( $rows ) ? $rows : array();
 	}
 
+	public static function prune( int $retention_days ): int {
+		global $wpdb;
+		$retention_days = max( 1, min( 3650, $retention_days ) );
+		$cutoff         = gmdate( 'Y-m-d H:i:s', time() - ( $retention_days * DAY_IN_SECONDS ) );
+		$table          = self::table();
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$deleted = $wpdb->query(
+			$wpdb->prepare( "DELETE FROM {$table} WHERE created_at < %s", $cutoff )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		return false === $deleted ? 0 : (int) $deleted;
+	}
+
 	public static function count_all(): int {
 		global $wpdb;
 		$table = self::table();
