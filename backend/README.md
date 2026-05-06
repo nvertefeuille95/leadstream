@@ -12,7 +12,7 @@ This service runs on a CNAMEd subdomain of each beta site (e.g. `relay.timberbro
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/healthz` | none | Cloud Run liveness probe |
+| GET | `/health` | none | Liveness probe (`/healthz` is intercepted by Cloud Run's GFE, hence `/health`) |
 | POST | `/v1/cookie` | License key + Origin check | Issues `Set-Cookie` for the parent domain |
 | POST | `/v1/events` | License key | Ingests attribution events into Firestore |
 
@@ -67,7 +67,7 @@ Cloud Run will return DNS records you need to add at the site's DNS provider. Ty
 After DNS propagates (5-30 min), Google issues a managed TLS cert automatically. Verify with:
 
 ```powershell
-curl https://relay.timberbrookmarketing.com/healthz
+curl https://relay.timberbrookmarketing.com/health
 ```
 
 Repeat for each beta site:

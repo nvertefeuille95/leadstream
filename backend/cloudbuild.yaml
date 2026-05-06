@@ -15,8 +15,6 @@
 substitutions:
   _REGION: us-central1
   _SERVICE: leadstream-backend
-  _REPO: leadstream
-  _IMAGE: us-central1-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}
 
 steps:
   - id: build
@@ -24,9 +22,9 @@ steps:
     args:
       - build
       - -t
-      - ${_IMAGE}:${COMMIT_SHA}
+      - us-central1-docker.pkg.dev/${PROJECT_ID}/leadstream/${_SERVICE}:${COMMIT_SHA}
       - -t
-      - ${_IMAGE}:latest
+      - us-central1-docker.pkg.dev/${PROJECT_ID}/leadstream/${_SERVICE}:latest
       - .
 
   - id: push
@@ -34,7 +32,7 @@ steps:
     args:
       - push
       - --all-tags
-      - ${_IMAGE}
+      - us-central1-docker.pkg.dev/${PROJECT_ID}/leadstream/${_SERVICE}
 
   - id: deploy
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
@@ -43,7 +41,7 @@ steps:
       - run
       - deploy
       - ${_SERVICE}
-      - --image=${_IMAGE}:${COMMIT_SHA}
+      - --image=us-central1-docker.pkg.dev/${PROJECT_ID}/leadstream/${_SERVICE}:${COMMIT_SHA}
       - --region=${_REGION}
       - --platform=managed
       - --service-account=leadstream-cloudrun@${PROJECT_ID}.iam.gserviceaccount.com
@@ -57,8 +55,8 @@ steps:
       - --set-env-vars=NODE_ENV=production
 
 images:
-  - ${_IMAGE}:${COMMIT_SHA}
-  - ${_IMAGE}:latest
+  - us-central1-docker.pkg.dev/${PROJECT_ID}/leadstream/${_SERVICE}:${COMMIT_SHA}
+  - us-central1-docker.pkg.dev/${PROJECT_ID}/leadstream/${_SERVICE}:latest
 
 options:
   logging: CLOUD_LOGGING_ONLY

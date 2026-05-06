@@ -81,7 +81,9 @@ function validateDomain(claimed, originHeader) {
 
 // --- Routes -------------------------------------------------------------
 
-app.get('/healthz', (_req, res) => {
+// Note: /healthz is intercepted by Cloud Run's GFE before reaching the
+// container, so we expose /health instead.
+app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok', version: '0.1.0' });
 });
 
