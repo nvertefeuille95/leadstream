@@ -182,6 +182,89 @@ final class Classifier {
 			'source'  => 'github',
 			'medium'  => 'referral',
 		),
+		// Email service providers. When the referrer is a marketing email
+		// click tracker or newsletter sender, classify medium as 'email' so
+		// reports separate email-driven traffic from organic referrals.
+		array(
+			'pattern' => '/(^|\.)list-manage\.com$/',
+			'source'  => 'mailchimp',
+			'medium'  => 'email',
+		),
+		array(
+			'pattern' => '/(^|\.)mailchimp\.com$/',
+			'source'  => 'mailchimp',
+			'medium'  => 'email',
+		),
+		array(
+			'pattern' => '/(^|\.)mc\.us$/',
+			'source'  => 'mailchimp',
+			'medium'  => 'email',
+		),
+		array(
+			'pattern' => '/(^|\.)constantcontact\.com$/',
+			'source'  => 'constantcontact',
+			'medium'  => 'email',
+		),
+		array(
+			'pattern' => '/(^|\.)ccsend\.com$/',
+			'source'  => 'constantcontact',
+			'medium'  => 'email',
+		),
+		array(
+			'pattern' => '/(^|\.)r20\.rs6\.net$/',
+			'source'  => 'constantcontact',
+			'medium'  => 'email',
+		),
+		array(
+			'pattern' => '/(^|\.)mailerlite\.com$/',
+			'source'  => 'mailerlite',
+			'medium'  => 'email',
+		),
+		array(
+			'pattern' => '/(^|\.)activecampaign\.com$/',
+			'source'  => 'activecampaign',
+			'medium'  => 'email',
+		),
+		array(
+			'pattern' => '/(^|\.)klaviyo\.com$/',
+			'source'  => 'klaviyo',
+			'medium'  => 'email',
+		),
+		array(
+			'pattern' => '/(^|\.)hsmsend\.com$/',
+			'source'  => 'hubspot',
+			'medium'  => 'email',
+		),
+		array(
+			'pattern' => '/(^|\.)convertkit\.com$/',
+			'source'  => 'convertkit',
+			'medium'  => 'email',
+		),
+		array(
+			'pattern' => '/^ck\.email$/',
+			'source'  => 'convertkit',
+			'medium'  => 'email',
+		),
+		array(
+			'pattern' => '/(^|\.)substack\.com$/',
+			'source'  => 'substack',
+			'medium'  => 'email',
+		),
+		array(
+			'pattern' => '/(^|\.)beehiiv\.com$/',
+			'source'  => 'beehiiv',
+			'medium'  => 'email',
+		),
+		array(
+			'pattern' => '/(^|\.)sendgrid\.net$/',
+			'source'  => 'sendgrid',
+			'medium'  => 'email',
+		),
+		array(
+			'pattern' => '/(^|\.)mailgun\.org$/',
+			'source'  => 'mailgun',
+			'medium'  => 'email',
+		),
 	);
 
 	public static function detect_click_id( array $params ): ?array {

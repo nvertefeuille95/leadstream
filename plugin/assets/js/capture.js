@@ -116,7 +116,25 @@
 		{ match: /(^|\.)threads\.net$/,               source: 'threads',    medium: 'social'    },
 		{ match: /(^|\.)whatsapp\.com$|^wa\.me$/,     source: 'whatsapp',   medium: 'messaging' },
 		{ match: /(^|\.)telegram\.(org|me)$|^t\.me$/, source: 'telegram',   medium: 'messaging' },
-		{ match: /(^|\.)github\.com$/,                source: 'github',     medium: 'referral'  }
+		{ match: /(^|\.)github\.com$/,                source: 'github',         medium: 'referral'  },
+		// Email service providers — classify medium=email so reports
+		// separate email-driven traffic from organic referrals.
+		{ match: /(^|\.)list-manage\.com$/,           source: 'mailchimp',      medium: 'email'     },
+		{ match: /(^|\.)mailchimp\.com$/,             source: 'mailchimp',      medium: 'email'     },
+		{ match: /(^|\.)mc\.us$/,                     source: 'mailchimp',      medium: 'email'     },
+		{ match: /(^|\.)constantcontact\.com$/,       source: 'constantcontact', medium: 'email'    },
+		{ match: /(^|\.)ccsend\.com$/,                source: 'constantcontact', medium: 'email'    },
+		{ match: /(^|\.)r20\.rs6\.net$/,              source: 'constantcontact', medium: 'email'    },
+		{ match: /(^|\.)mailerlite\.com$/,            source: 'mailerlite',     medium: 'email'     },
+		{ match: /(^|\.)activecampaign\.com$/,        source: 'activecampaign', medium: 'email'     },
+		{ match: /(^|\.)klaviyo\.com$/,               source: 'klaviyo',        medium: 'email'     },
+		{ match: /(^|\.)hsmsend\.com$/,               source: 'hubspot',        medium: 'email'     },
+		{ match: /(^|\.)convertkit\.com$/,            source: 'convertkit',     medium: 'email'     },
+		{ match: /^ck\.email$/,                       source: 'convertkit',     medium: 'email'     },
+		{ match: /(^|\.)substack\.com$/,              source: 'substack',       medium: 'email'     },
+		{ match: /(^|\.)beehiiv\.com$/,               source: 'beehiiv',        medium: 'email'     },
+		{ match: /(^|\.)sendgrid\.net$/,              source: 'sendgrid',       medium: 'email'     },
+		{ match: /(^|\.)mailgun\.org$/,               source: 'mailgun',        medium: 'email'     }
 	];
 
 	function classifyReferrer() {

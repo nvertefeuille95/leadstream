@@ -106,6 +106,22 @@ final class ClassifierTest extends TestCase {
 			'telegram.org'           => array( 'https://telegram.org/', 'telegram', 'messaging' ),
 			't.me'                   => array( 'https://t.me/channel', 'telegram', 'messaging' ),
 			'github.com'             => array( 'https://github.com/user/repo', 'github', 'referral' ),
+			// Email service providers — classify as medium=email.
+			'mailchimp_listmanage'   => array( 'https://controlstation.us14.list-manage.com/track/click?u=abc&id=xyz', 'mailchimp', 'email' ),
+			'mailchimp_main'         => array( 'https://mailchimp.com/campaign/xyz', 'mailchimp', 'email' ),
+			'mailchimp_short'        => array( 'https://eepurl.mc.us/abc', 'mailchimp', 'email' ),
+			'constantcontact_main'   => array( 'https://www.constantcontact.com/r/abc', 'constantcontact', 'email' ),
+			'constantcontact_track'  => array( 'https://r20.rs6.net/tn.jsp?abc', 'constantcontact', 'email' ),
+			'mailerlite'             => array( 'https://email.mailerlite.com/CL0/abc', 'mailerlite', 'email' ),
+			'activecampaign'         => array( 'https://timberbrook.activecampaign.com/x', 'activecampaign', 'email' ),
+			'klaviyo'                => array( 'https://email.klaviyo.com/click/123', 'klaviyo', 'email' ),
+			'hubspot_email'          => array( 'https://abc.hsmsend.com/click/xyz', 'hubspot', 'email' ),
+			'convertkit_main'        => array( 'https://app.convertkit.com/click/abc', 'convertkit', 'email' ),
+			'convertkit_short'       => array( 'https://ck.email/abc123', 'convertkit', 'email' ),
+			'substack'               => array( 'https://noah.substack.com/p/q', 'substack', 'email' ),
+			'beehiiv'                => array( 'https://www.beehiiv.com/click/abc', 'beehiiv', 'email' ),
+			'sendgrid'               => array( 'https://u123.ct.sendgrid.net/abc', 'sendgrid', 'email' ),
+			'mailgun'                => array( 'https://email.mailgun.org/click/abc', 'mailgun', 'email' ),
 		);
 	}
 
