@@ -96,21 +96,9 @@ final class Rest {
 			);
 		}
 
-		$duration = max( 1, min( 365, (int) get_option( 'leadstream_cookie_duration', 30 ) ) );
-		$expires  = time() + ( $duration * DAY_IN_SECONDS );
-
-		foreach ( $data as $key => $value ) {
-			self::set_cookie( 'leadstream_' . $key, (string) $value, $expires );
-		}
-
-		if ( '' !== $url ) {
-			self::set_cookie( 'leadstream_first_page', $url, $expires );
-		}
-		if ( '' !== $referrer ) {
-			self::set_cookie( 'leadstream_referrer', $referrer, $expires );
-		}
-
-		// Record the touch (multi-touch attribution journey).
+		// Always record the touch — this is the multi-touch journal. Cookie
+		// updates below are separate and only run when the attribution model
+		// allows overwriting existing values.
 		Touches::record(
 			$visitor_id,
 			$data,
@@ -122,9 +110,41 @@ final class Rest {
 			)
 		);
 
+		$model                = (string) get_option( 'leadstream_attribution_model', 'last' );
+		$has_existing_cookie  = ! empty( $_COOKIE['leadstream_utm_source'] );
+		$preserve_first_touch = ( 'first' === $model ) && $has_existing_cookie;
+
+		if ( $preserve_first_touch ) {
+			return rest_ensure_response(
+				array(
+					'captured'   => true,
+					'mode'       => 'preserved',
+					'fields'     => array_keys( $data ),
+					'visitor_id' => $visitor_id,
+				)
+			);
+		}
+
+		$duration = max( 1, min( 365, (int) get_option( 'leadstream_cookie_duration', 30 ) ) );
+		$expires  = time() + ( $duration * DAY_IN_SECONDS );
+
+		foreach ( $data as $key => $value ) {
+			self::set_cookie( 'leadstream_' . $key, (string) $value, $expires );
+		}
+
+		// first_page is immutable: only set on the truly first visit, never
+		// overwritten by later touches regardless of model.
+		if ( '' !== $url && empty( $_COOKIE['leadstream_first_page'] ) ) {
+			self::set_cookie( 'leadstream_first_page', $url, $expires );
+		}
+		if ( '' !== $referrer ) {
+			self::set_cookie( 'leadstream_referrer', $referrer, $expires );
+		}
+
 		return rest_ensure_response(
 			array(
 				'captured'   => true,
+				'mode'       => $has_existing_cookie ? 'updated' : 'first_touch',
 				'fields'     => array_keys( $data ),
 				'visitor_id' => $visitor_id,
 			)

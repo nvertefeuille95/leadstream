@@ -136,25 +136,36 @@
 	function capture() {
 		if (!consentGranted()) { log('consent not granted'); return Promise.resolve(); }
 
-		// Cookies already exist (PHP-side capture, REST capture, or earlier visit)?
-		// Don't rewrite them with document.cookie. On Safari, rewriting reclassifies
-		// HTTP-set cookies as DOM-set, triggering ITP's hard 7-day creation cap.
-		if (getCookie('utm_source')) {
-			log('cookies already present, preserving HTTP-set lifetime');
-			try { sessionStorage.setItem(STORAGE_KEY, '1'); } catch (e) {}
-			return Promise.resolve();
-		}
-
+		// Per-URL session dedup. Same URL refreshed in same tab = no second
+		// REST call. A different URL (or different query string) IS a new
+		// touch worth recording, even if attribution cookies already exist
+		// from an earlier visit. The server-side touch_id dedup catches
+		// cross-tab refreshes via the 60-second bucket.
+		var pageKey = STORAGE_KEY + ':' + location.pathname + location.search;
 		try {
-			if (sessionStorage.getItem(STORAGE_KEY) === '1') { log('already captured'); return Promise.resolve(); }
+			if (sessionStorage.getItem(pageKey) === '1') {
+				log('already captured this URL in this session');
+				return Promise.resolve();
+			}
 		} catch (e) { /* sessionStorage disabled; proceed */ }
 
 		// Prefer the REST endpoint so cookies land via Set-Cookie HTTP header
 		// (ITP-friendly). Fall back to client-side document.cookie if REST is
-		// unavailable (network error, plugin REST disabled, fetch unsupported).
-		return captureViaRest().catch(function (err) {
+		// unavailable. Note: we ALWAYS call REST, even if attribution cookies
+		// already exist, so the multi-touch journal records every meaningful
+		// visit. The server side decides whether to update cookies (per the
+		// configured attribution model) or just record a touch.
+		return captureViaRest().then(function (response) {
+			try { sessionStorage.setItem(pageKey, '1'); } catch (e) {}
+			return response;
+		}).catch(function (err) {
 			log('REST capture failed, falling back to client-side', err);
-			captureClientSide();
+			// Client-side fallback only writes cookies if none exist (preserve
+			// first-touch). Touches will not be recorded in this fallback path
+			// since DB writes require server-side execution.
+			if (!getCookie('utm_source')) {
+				captureClientSide();
+			}
 		});
 	}
 

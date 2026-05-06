@@ -39,21 +39,10 @@ final class Capture {
 			return;
 		}
 
-		$duration = max( 1, min( 365, (int) get_option( 'leadstream_cookie_duration', 30 ) ) );
-		$expires  = time() + ( $duration * DAY_IN_SECONDS );
-
-		foreach ( $data as $key => $value ) {
-			self::set_cookie( 'leadstream_' . $key, (string) $value, $expires );
-		}
-
 		$current_url = self::current_url();
-		if ( '' !== $current_url ) {
-			self::set_cookie( 'leadstream_first_page', $current_url, $expires );
-		}
-		if ( '' !== $referrer ) {
-			self::set_cookie( 'leadstream_referrer', $referrer, $expires );
-		}
 
+		// Touch is recorded on every meaningful visit (multi-touch journal),
+		// independent of whether we update attribution cookies below.
 		Touches::record(
 			$visitor_id,
 			$data,
@@ -64,6 +53,27 @@ final class Capture {
 				'user_agent' => self::user_agent(),
 			)
 		);
+
+		$model                = (string) get_option( 'leadstream_attribution_model', 'last' );
+		$has_existing_cookie  = ! empty( $_COOKIE['leadstream_utm_source'] );
+		$preserve_first_touch = ( 'first' === $model ) && $has_existing_cookie;
+
+		if ( ! $preserve_first_touch ) {
+			$duration = max( 1, min( 365, (int) get_option( 'leadstream_cookie_duration', 30 ) ) );
+			$expires  = time() + ( $duration * DAY_IN_SECONDS );
+
+			foreach ( $data as $key => $value ) {
+				self::set_cookie( 'leadstream_' . $key, (string) $value, $expires );
+			}
+
+			// first_page is immutable: only set on the truly first visit.
+			if ( '' !== $current_url && empty( $_COOKIE['leadstream_first_page'] ) ) {
+				self::set_cookie( 'leadstream_first_page', $current_url, $expires );
+			}
+			if ( '' !== $referrer ) {
+				self::set_cookie( 'leadstream_referrer', $referrer, $expires );
+			}
+		}
 
 		self::set_cookie( self::SESSION_COOKIE, '1', 0 );
 	}
@@ -92,10 +102,10 @@ final class Capture {
 		if ( get_option( 'leadstream_require_consent', false ) ) {
 			return false;
 		}
-		// JS already captured on an earlier pageview.
-		if ( ! empty( $_COOKIE['leadstream_utm_source'] ) ) {
-			return false;
-		}
+		// Note: we no longer skip when leadstream_utm_source already exists.
+		// We need to record touches on every meaningful visit. The cookie-
+		// update logic in maybe_capture decides whether to overwrite cookies
+		// based on the attribution model setting.
 		return true;
 	}
 
