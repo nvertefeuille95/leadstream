@@ -39,6 +39,8 @@ $options_to_drop = array(
 	'leadstream_universal_inject',
 	'leadstream_attribution_model',
 	'leadstream_touches_retention_days',
+	'leadstream_backend_url',
+	'leadstream_license_key',
 	'leadstream_gads_enabled',
 	'leadstream_gads_developer_token',
 	'leadstream_gads_refresh_token',

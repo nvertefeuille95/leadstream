@@ -175,6 +175,10 @@
 		// configured attribution model) or just record a touch.
 		return captureViaRest().then(function (response) {
 			try { sessionStorage.setItem(pageKey, '1'); } catch (e) {}
+			// Phase 3: also issue cookies via the CNAMEd backend if configured.
+			// This gets us HTTP-set cookies that defeat Safari ITP's 7-day cap
+			// even on cached pages where the local PHP-side capture never ran.
+			issueBackendCookies();
 			return response;
 		}).catch(function (err) {
 			log('REST capture failed, falling back to client-side', err);
@@ -184,7 +188,53 @@
 			if (!getCookie('utm_source')) {
 				captureClientSide();
 			}
+			issueBackendCookies();
 		});
+	}
+
+	function issueBackendCookies() {
+		if (!cfg.backendUrl || !cfg.backendKey || !cfg.siteApex) return;
+		if (typeof window.fetch !== 'function') return;
+
+		var payload = {};
+		var keys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+			'click_id', 'click_id_type', 'first_page', 'referrer'];
+		for (var i = 0; i < keys.length; i++) {
+			var v = getCookie(keys[i]);
+			if (v) payload[keys[i]] = v;
+		}
+		// Visitor cookie comes via REST too; keep it in sync on the parent domain.
+		var visitor = readRawCookie('leadstream_visitor');
+		if (visitor) payload.visitor = visitor;
+
+		if (Object.keys(payload).length === 0) return;
+
+		fetch(cfg.backendUrl.replace(/\/$/, '') + '/v1/cookie', {
+			method: 'POST',
+			credentials: 'include',
+			headers: {
+				'Content-Type': 'application/json',
+				'Authorization': 'Bearer ' + cfg.backendKey
+			},
+			body: JSON.stringify({
+				domain: cfg.siteApex,
+				cookies: payload,
+				max_age_days: cfg.cookieMaxAgeDays || 365
+			})
+		}).then(function (response) {
+			if (response.ok) {
+				log('backend cookies issued for', cfg.siteApex);
+			} else {
+				log('backend cookie request failed', response.status);
+			}
+		}).catch(function (err) {
+			log('backend cookie network error', err);
+		});
+	}
+
+	function readRawCookie(fullName) {
+		var m = document.cookie.match(new RegExp('(?:^|; )' + fullName + '=([^;]*)'));
+		return m ? decodeURIComponent(m[1]) : null;
 	}
 
 	function captureViaRest() {

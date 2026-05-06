@@ -37,6 +37,9 @@ final class Assets {
 	public static function js_config(): array {
 		$beta = self::is_beta_domain();
 
+		$backend_url = trim( (string) get_option( 'leadstream_backend_url', '' ) );
+		$license_key = (string) get_option( 'leadstream_license_key', '' );
+
 		return array(
 			'cookiePrefix'      => 'leadstream_',
 			'cookieDuration'    => (int) get_option( 'leadstream_cookie_duration', 30 ),
@@ -46,7 +49,22 @@ final class Assets {
 			'restUrl'           => esc_url_raw( rest_url( Rest::NAMESPACE . Rest::ROUTE ) ),
 			'restNonce'         => wp_create_nonce( 'wp_rest' ),
 			'universalInject'   => (bool) get_option( 'leadstream_universal_inject', true ),
+			'backendUrl'        => '' !== $backend_url && '' !== $license_key ? esc_url_raw( $backend_url ) : '',
+			'backendKey'        => '' !== $backend_url && '' !== $license_key ? $license_key : '',
+			'cookieMaxAgeDays'  => 365,
+			'siteApex'          => self::registrable_domain(),
 		);
+	}
+
+	private static function registrable_domain(): string {
+		$host = isset( $_SERVER['HTTP_HOST'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_HOST'] ) ) : '';
+		$host = strtolower( preg_replace( '/^www\./', '', $host ) );
+		// Naive eTLD+1 — last two labels. Caller (the JS) only uses this for cookie Domain= which is fine for single-TLD hosts. Multi-tier TLDs (.co.uk) need the public suffix list; deferred.
+		$parts = explode( '.', $host );
+		if ( count( $parts ) < 2 ) {
+			return $host;
+		}
+		return implode( '.', array_slice( $parts, -2 ) );
 	}
 
 	public static function is_beta_domain(): bool {

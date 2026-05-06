@@ -30,6 +30,7 @@ final class Core {
 		Forms\ElementorForms::register();
 		Worker::register();
 		Rest::register();
+		Relay::register();
 		if ( is_admin() ) {
 			Admin::register();
 			Settings::register();

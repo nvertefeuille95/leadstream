@@ -1,0 +1,20 @@
+{
+  "name": "leadstream-backend",
+  "version": "0.1.0",
+  "description": "LeadStream backend service. Issues HTTP-set first-party cookies via CNAMEd subdomain (Safari ITP defense) and ingests attribution events from WordPress sites.",
+  "private": true,
+  "main": "src/index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "@google-cloud/firestore": "^7.10.0",
+    "express": "^4.21.2"
+  }
+}

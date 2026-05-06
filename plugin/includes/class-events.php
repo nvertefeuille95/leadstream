@@ -62,7 +62,20 @@ final class Events {
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$result = $wpdb->insert( self::table(), $filtered, $formats );
-		return false === $result ? 0 : (int) $wpdb->insert_id;
+		if ( false === $result ) {
+			return 0;
+		}
+		$insert_id = (int) $wpdb->insert_id;
+
+		/**
+		 * Fires after an event has been recorded. Used by the Phase 3 relay
+		 * to forward events to the backend, but any extension can hook here.
+		 *
+		 * @param array $event The full event row including auto-stamped fields.
+		 */
+		do_action( 'leadstream_event_recorded', array_merge( $filtered, array( 'id' => $insert_id ) ) );
+
+		return $insert_id;
 	}
 
 	public static function find( int $id ): ?array {

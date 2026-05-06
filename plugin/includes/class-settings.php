@@ -19,6 +19,7 @@ final class Settings {
 	public const SECTION             = 'leadstream_capture';
 	public const SECTION_FORMS       = 'leadstream_forms';
 	public const SECTION_ATTRIBUTION = 'leadstream_attribution';
+	public const SECTION_BACKEND     = 'leadstream_backend';
 	public const SECTION_PLATFORMS   = 'leadstream_platforms';
 	public const CAPABILITY          = 'manage_options';
 
@@ -145,6 +146,24 @@ final class Settings {
 				'type'              => 'string',
 				'default'           => 'last',
 				'sanitize_callback' => array( __CLASS__, 'sanitize_attribution_model' ),
+			)
+		);
+		register_setting(
+			self::OPTION_GROUP,
+			'leadstream_backend_url',
+			array(
+				'type'              => 'string',
+				'default'           => '',
+				'sanitize_callback' => 'esc_url_raw',
+			)
+		);
+		register_setting(
+			self::OPTION_GROUP,
+			'leadstream_license_key',
+			array(
+				'type'              => 'string',
+				'default'           => '',
+				'sanitize_callback' => 'sanitize_text_field',
 			)
 		);
 		register_setting(
@@ -318,6 +337,29 @@ final class Settings {
 		);
 
 		add_settings_section(
+			self::SECTION_BACKEND,
+			__( 'Backend (Phase 3)', 'leadstream' ),
+			array( __CLASS__, 'render_backend_section_intro' ),
+			self::PAGE_SLUG
+		);
+
+		add_settings_field(
+			'leadstream_backend_url',
+			__( 'Backend URL', 'leadstream' ),
+			array( __CLASS__, 'field_backend_url' ),
+			self::PAGE_SLUG,
+			self::SECTION_BACKEND
+		);
+
+		add_settings_field(
+			'leadstream_license_key',
+			__( 'License key', 'leadstream' ),
+			array( __CLASS__, 'field_license_key' ),
+			self::PAGE_SLUG,
+			self::SECTION_BACKEND
+		);
+
+		add_settings_section(
 			self::SECTION_PLATFORMS,
 			__( 'Ad platforms', 'leadstream' ),
 			array( __CLASS__, 'render_platforms_section_intro' ),
@@ -381,6 +423,28 @@ final class Settings {
 			'<input type="number" name="leadstream_touches_retention_days" value="%d" min="1" max="3650" class="small-text" /> <p class="description">%s</p>',
 			esc_attr( (string) $value ),
 			esc_html__( 'How long to keep touch rows before pruning. Defaults to 365 days. The pruning cron worker lands in v0.8.1; until then this setting is informational.', 'leadstream' )
+		);
+	}
+
+	public static function render_backend_section_intro(): void {
+		echo '<p>' . esc_html__( 'Optional. Point the plugin at a deployed LeadStream backend to enable ITP-resistant cookie issuance from a CNAMEd subdomain (e.g. relay.yoursite.com). When backend URL and license key are both set, attribution events are also relayed to the backend for cross-site reporting. Leave empty to keep all data local.', 'leadstream' ) . '</p>';
+	}
+
+	public static function field_backend_url(): void {
+		$value = (string) get_option( 'leadstream_backend_url', '' );
+		printf(
+			'<input type="url" name="leadstream_backend_url" value="%s" class="regular-text" placeholder="https://relay.yoursite.com" /> <p class="description">%s</p>',
+			esc_attr( $value ),
+			esc_html__( 'CNAMEd subdomain mapped to your Cloud Run service. Must share the registrable domain with this site for cookie issuance to work.', 'leadstream' )
+		);
+	}
+
+	public static function field_license_key(): void {
+		$value = (string) get_option( 'leadstream_license_key', '' );
+		printf(
+			'<input type="password" name="leadstream_license_key" value="%s" class="regular-text" autocomplete="off" /> <p class="description">%s</p>',
+			esc_attr( $value ),
+			esc_html__( 'Authenticates this site to the backend. v0.11.0 stub: any non-empty value works. Real Freemius license validation lands later.', 'leadstream' )
 		);
 	}
 

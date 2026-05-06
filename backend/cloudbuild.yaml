@@ -1,0 +1,64 @@
+# Cloud Build pipeline for the LeadStream backend.
+#
+# Triggered manually via `gcloud builds submit` from the backend/ directory,
+# or via a Cloud Build trigger watching the GitHub repo.
+#
+# Steps:
+#   1. Build the Docker image with the commit SHA as tag
+#   2. Push to Artifact Registry
+#   3. Deploy to Cloud Run with the runtime service account
+#
+# Variables substituted by Cloud Build:
+#   $PROJECT_ID  - the GCP project (leadstream-dev / -staging / -prod)
+#   $COMMIT_SHA  - git commit SHA when triggered from a repo, else 'latest'
+
+substitutions:
+  _REGION: us-central1
+  _SERVICE: leadstream-backend
+  _REPO: leadstream
+  _IMAGE: us-central1-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}
+
+steps:
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_IMAGE}:${COMMIT_SHA}
+      - -t
+      - ${_IMAGE}:latest
+      - .
+
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - --all-tags
+      - ${_IMAGE}
+
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_IMAGE}:${COMMIT_SHA}
+      - --region=${_REGION}
+      - --platform=managed
+      - --service-account=leadstream-cloudrun@${PROJECT_ID}.iam.gserviceaccount.com
+      - --allow-unauthenticated
+      - --min-instances=0
+      - --max-instances=10
+      - --memory=256Mi
+      - --cpu=1
+      - --concurrency=80
+      - --timeout=30
+      - --set-env-vars=NODE_ENV=production
+
+images:
+  - ${_IMAGE}:${COMMIT_SHA}
+  - ${_IMAGE}:latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY
