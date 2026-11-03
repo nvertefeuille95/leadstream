@@ -3,7 +3,7 @@
  *
  * Runs client-side on every frontend request. Detects UTMs, click IDs, and
  * referrer, stores first-party cookies, and fills hidden fields on Elementor
- * forms. Other form types are handled PHP-side.
+ * and Gravity Forms. Gravity Forms values are also set PHP-side at submit.
  *
  * Precedence for source/medium: explicit UTM > click ID > referrer > direct.
  */
@@ -319,6 +319,19 @@
 		'ScCid', 'epik'
 	];
 
+	// Gravity Forms names inputs input_<id>, so name selectors never match
+	// its fields. PHP tags each mapped field's container with
+	// leadstream-field-<key> instead (GravityForms::field_css_class). Values
+	// are always overwritten, empty included, because a cached page carries
+	// whatever the first visitor's cookies rendered into the HTML.
+	function fillTagged(form, key, value) {
+		var fields = form.querySelectorAll('.leadstream-field-' + key + ' input');
+		for (var i = 0; i < fields.length; i++) {
+			fields[i].value = value;
+			log('filled', fields[i].name, '=', value);
+		}
+	}
+
 	function fillForm(form) {
 		if (!form || typeof form.querySelector !== 'function') return;
 		for (var i = 0; i < FIELD_KEYS.length; i++) {
@@ -330,6 +343,7 @@
 				field.value = value;
 				log('filled', field.name, '=', value);
 			}
+			fillTagged(form, key, value);
 		}
 
 		// Also fill any field whose name matches the detected click-ID type
@@ -343,6 +357,10 @@
 		// clobbering fields like `gclid_captured_flag`.
 		var clickIdValue = getCookie('click_id');
 		var clickIdType  = getCookie('click_id_type');
+		for (var t = 0; t < CLICK_ID_ALIASES.length; t++) {
+			var alias = CLICK_ID_ALIASES[t];
+			fillTagged(form, alias, clickIdValue && clickIdType === alias ? clickIdValue : '');
+		}
 		if (clickIdValue && clickIdType && CLICK_ID_ALIASES.indexOf(clickIdType) !== -1) {
 			var aliasFields = form.querySelectorAll(
 				'input[name="' + clickIdType + '"], input[name$="[' + clickIdType + ']"]'

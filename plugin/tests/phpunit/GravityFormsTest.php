@@ -19,6 +19,7 @@ final class GravityFormsTest extends TestCase {
 	protected function tearDown(): void {
 		WP_Mock::tearDown();
 		$_COOKIE = array();
+		$_POST   = array();
 		parent::tearDown();
 	}
 
@@ -286,5 +287,127 @@ final class GravityFormsTest extends TestCase {
 		$this->assertStringContainsString( 'google', $output );
 		$this->assertStringContainsString( 'abc123', $output );
 		$this->assertStringContainsString( 'postbox', $output );
+	}
+
+	public function test_field_key_matches_canonical_and_prefixed_names(): void {
+		$this->assertSame( 'utm_source', GravityForms::field_key( (object) array( 'inputName' => 'utm_source' ) ) );
+		$this->assertSame( 'utm_medium', GravityForms::field_key( (object) array( 'inputName' => 'ls_utm_medium' ) ) );
+		$this->assertSame( 'click_id', GravityForms::field_key( array( 'inputName' => 'leadstream_click_id' ) ) );
+		$this->assertSame( 'first_page', GravityForms::field_key( array( 'inputName' => 'first_page' ) ) );
+	}
+
+	public function test_field_key_matches_click_id_alias_case_insensitively(): void {
+		$this->assertSame( 'gclid', GravityForms::field_key( (object) array( 'inputName' => 'gclid' ) ) );
+		$this->assertSame( 'gclid', GravityForms::field_key( (object) array( 'inputName' => 'GCLID' ) ) );
+		$this->assertSame( 'ScCid', GravityForms::field_key( (object) array( 'inputName' => 'sccid' ) ) );
+	}
+
+	public function test_field_key_empty_for_unrelated_or_missing_names(): void {
+		$this->assertSame( '', GravityForms::field_key( (object) array( 'inputName' => 'email' ) ) );
+		$this->assertSame( '', GravityForms::field_key( (object) array( 'inputName' => 'gclid_flag' ) ) );
+		$this->assertSame( '', GravityForms::field_key( (object) array( 'inputName' => '' ) ) );
+		$this->assertSame( '', GravityForms::field_key( (object) array( 'id' => 3 ) ) );
+	}
+
+	public function test_value_for_key_reads_cookie_for_canonical_keys(): void {
+		$_COOKIE['leadstream_utm_source'] = 'google';
+		$this->assertSame( 'google', GravityForms::value_for_key( 'utm_source' ) );
+		$this->assertSame( '', GravityForms::value_for_key( 'utm_medium' ) );
+	}
+
+	public function test_value_for_key_alias_only_when_click_id_type_matches(): void {
+		$_COOKIE['leadstream_click_id']      = 'TBMTEST123';
+		$_COOKIE['leadstream_click_id_type'] = 'gclid';
+
+		$this->assertSame( 'TBMTEST123', GravityForms::value_for_key( 'gclid' ) );
+		$this->assertSame( '', GravityForms::value_for_key( 'fbclid' ) );
+	}
+
+	/**
+	 * The cached-page case: the HTML carried a previous visitor's values, the
+	 * browser posts them back, and the visitor's own cookies must win.
+	 */
+	public function test_override_posted_values_replaces_stale_values_with_cookies(): void {
+		$_COOKIE['leadstream_utm_source']    = 'google';
+		$_COOKIE['leadstream_utm_medium']    = 'cpc';
+		$_COOKIE['leadstream_click_id']      = 'TBMTEST123';
+		$_COOKIE['leadstream_click_id_type'] = 'gclid';
+
+		$_POST = array(
+			'input_1'  => 'jane@example.com',
+			'input_13' => 'google',
+			'input_14' => 'organic',
+			'input_16' => 'direct',
+			'input_21' => '',
+			'input_30' => 'OLDGCLID',
+		);
+		$form  = array(
+			'id'     => 3,
+			'fields' => array(
+				(object) array( 'id' => 1, 'inputName' => '' ),
+				(object) array( 'id' => 13, 'inputName' => 'utm_source' ),
+				(object) array( 'id' => 14, 'inputName' => 'utm_medium' ),
+				(object) array( 'id' => 16, 'inputName' => 'leadstream_utm_source' ),
+				(object) array( 'id' => 21, 'inputName' => 'leadstream_click_id' ),
+				(object) array( 'id' => 30, 'inputName' => 'gclid' ),
+			),
+		);
+
+		GravityForms::override_posted_values( $form );
+
+		$this->assertSame( 'jane@example.com', $_POST['input_1'] );
+		$this->assertSame( 'google', $_POST['input_13'] );
+		$this->assertSame( 'cpc', $_POST['input_14'] );
+		$this->assertSame( 'google', $_POST['input_16'] );
+		$this->assertSame( 'TBMTEST123', $_POST['input_21'] );
+		$this->assertSame( 'TBMTEST123', $_POST['input_30'] );
+	}
+
+	public function test_override_posted_values_blanks_stale_values_when_no_cookie(): void {
+		$_POST = array(
+			'input_13' => 'google',
+			'input_22' => 'https://controlstation.com/somebody-elses-landing-page/',
+		);
+		$form  = array(
+			'fields' => array(
+				array( 'id' => 13, 'inputName' => 'utm_source' ),
+				array( 'id' => 22, 'inputName' => 'leadstream_first_page' ),
+			),
+		);
+
+		GravityForms::override_posted_values( $form );
+
+		$this->assertSame( '', $_POST['input_13'] );
+		$this->assertSame( '', $_POST['input_22'] );
+	}
+
+	public function test_override_posted_values_noop_on_bad_form(): void {
+		$_POST = array( 'input_1' => 'x' );
+		GravityForms::override_posted_values( null );
+		GravityForms::override_posted_values( array( 'id' => 1 ) );
+		$this->assertSame( array( 'input_1' => 'x' ), $_POST );
+	}
+
+	public function test_field_css_class_tags_mapped_fields(): void {
+		$this->assertSame(
+			'gfield leadstream-injected leadstream-field-utm_source',
+			GravityForms::field_css_class( 'gfield leadstream-injected', (object) array( 'inputName' => 'leadstream_utm_source' ) )
+		);
+		$this->assertSame(
+			'gfield leadstream-field-gclid',
+			GravityForms::field_css_class( 'gfield', (object) array( 'inputName' => 'gclid' ) )
+		);
+	}
+
+	public function test_field_css_class_passthrough_for_unmapped_fields(): void {
+		$this->assertSame( 'gfield', GravityForms::field_css_class( 'gfield', (object) array( 'inputName' => 'email' ) ) );
+	}
+
+	public function test_has_injected_fields(): void {
+		$form = array( 'id' => 3, 'fields' => array( (object) array( 'id' => 1 ) ) );
+		$this->assertFalse( GravityForms::has_injected_fields( $form ) );
+
+		$form['fields'] = array_merge( $form['fields'], GravityForms::injected_field_props( $form ) );
+		$this->assertTrue( GravityForms::has_injected_fields( $form ) );
 	}
 }

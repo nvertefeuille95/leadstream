@@ -37,6 +37,23 @@ final class GravityForms {
 			add_filter( 'gform_field_value_' . $key, $resolver );
 			add_filter( 'gform_field_value_ls_' . $key, $resolver );
 		}
+		foreach ( self::click_id_aliases() as $alias ) {
+			add_filter(
+				'gform_field_value_' . $alias,
+				static function () use ( $alias ) {
+					return self::value_for_key( $alias );
+				}
+			);
+		}
+
+		// Cached pages (WP Rocket etc.) carry the first visitor's rendered
+		// values, so overwrite mapped fields from this visitor's cookies at
+		// submit time. The POST itself is never cached.
+		add_action( 'gform_pre_submission', array( __CLASS__, 'override_posted_values' ) );
+
+		// Tag mapped field containers so capture.js can find them. GF names
+		// its inputs input_<id>, which carries no hint of the field's purpose.
+		add_filter( 'gform_field_css_class', array( __CLASS__, 'field_css_class' ), 10, 2 );
 
 		add_action( 'gform_after_submission', array( __CLASS__, 'attach_meta' ), 10, 1 );
 		add_filter( 'gform_custom_merge_tags', array( __CLASS__, 'register_merge_tags' ), 10, 1 );
@@ -121,6 +138,92 @@ final class GravityForms {
 			return '';
 		}
 		return sanitize_text_field( wp_unslash( $_COOKIE[ $name ] ) );
+	}
+
+	/**
+	 * Platform click-ID names (gclid, fbclid, ...) a form may use as a field's
+	 * parameter name instead of LeadStream's canonical `click_id`.
+	 */
+	public static function click_id_aliases(): array {
+		return array_column( \LeadStream\Classifier::CLICK_IDS, 'param' );
+	}
+
+	/**
+	 * The LeadStream key (or click-ID alias) a GF field maps to, from its
+	 * parameter name: `utm_source`, `ls_utm_source`, `leadstream_utm_source`
+	 * or `gclid`. Empty string when the field is not ours.
+	 *
+	 * @param object|array $field GF_Field or field array.
+	 */
+	public static function field_key( $field ): string {
+		$name = is_object( $field ) ? ( $field->inputName ?? '' ) : ( $field['inputName'] ?? '' ); // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+		if ( ! is_string( $name ) || '' === $name ) {
+			return '';
+		}
+		$name = preg_replace( '/^(leadstream_|ls_)/', '', $name );
+
+		if ( in_array( $name, self::FIELD_KEYS, true ) ) {
+			return $name;
+		}
+		foreach ( self::click_id_aliases() as $alias ) {
+			if ( strtolower( $alias ) === strtolower( $name ) ) {
+				return $alias;
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * This visitor's value for a key from field_key(). A click-ID alias only
+	 * gets the click ID when its type matches, so a gclid field never holds
+	 * an fbclid.
+	 */
+	public static function value_for_key( string $key ): string {
+		if ( in_array( $key, self::FIELD_KEYS, true ) ) {
+			return self::cookie( $key );
+		}
+		if ( strtolower( self::cookie( 'click_id_type' ) ) === strtolower( $key ) ) {
+			return self::cookie( 'click_id' );
+		}
+		return '';
+	}
+
+	/**
+	 * Replace the posted value of every mapped field with this visitor's
+	 * cookie value, empty when there is no cookie. Runs on gform_pre_submission,
+	 * which GF fires only for front-end submissions, after validation and
+	 * before the entry is saved.
+	 *
+	 * @param array $form GF form.
+	 */
+	public static function override_posted_values( $form ): void {
+		if ( ! is_array( $form ) || empty( $form['fields'] ) || ! is_array( $form['fields'] ) ) {
+			return;
+		}
+		foreach ( $form['fields'] as $field ) {
+			$key = self::field_key( $field );
+			if ( '' === $key ) {
+				continue;
+			}
+			$id = is_object( $field ) ? (int) ( $field->id ?? 0 ) : (int) ( $field['id'] ?? 0 );
+			if ( $id > 0 ) {
+				$_POST[ 'input_' . $id ] = self::value_for_key( $key );
+			}
+		}
+	}
+
+	/**
+	 * Add `leadstream-field-<key>` to a mapped field's container class.
+	 *
+	 * @param string       $css_class Classes GF is about to render.
+	 * @param object|array $field     GF_Field.
+	 */
+	public static function field_css_class( $css_class, $field ) {
+		$key = self::field_key( $field );
+		if ( '' === $key ) {
+			return $css_class;
+		}
+		return trim( $css_class . ' leadstream-field-' . $key );
 	}
 
 	public static function register_merge_tags( array $merge_tags ): array {
@@ -222,10 +325,27 @@ final class GravityForms {
 			$form['fields'] = array();
 		}
 
+		// One submission can run this on pre_validation and again on
+		// pre_submission_filter with the already-filtered form. Inject once,
+		// so the entry does not get a second, empty set of fields.
+		if ( self::has_injected_fields( $form ) ) {
+			return $form;
+		}
+
 		foreach ( self::injected_field_props( $form ) as $props ) {
 			$form['fields'][] = \GF_Fields::create( $props );
 		}
 		return $form;
+	}
+
+	public static function has_injected_fields( array $form ): bool {
+		foreach ( $form['fields'] ?? array() as $field ) {
+			$class = is_object( $field ) ? ( $field->cssClass ?? '' ) : ( $field['cssClass'] ?? '' ); // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+			if ( is_string( $class ) && false !== strpos( $class, 'leadstream-injected' ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	public static function entry_list_columns( $columns, $form_id = 0 ) {
