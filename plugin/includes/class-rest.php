@@ -110,11 +110,11 @@ final class Rest {
 			)
 		);
 
-		$model                = (string) get_option( 'leadstream_attribution_model', 'last' );
-		$has_existing_cookie  = ! empty( $_COOKIE['leadstream_utm_source'] );
-		$preserve_first_touch = ( 'first' === $model ) && $has_existing_cookie;
+		$model               = (string) get_option( 'leadstream_attribution_model', 'last' );
+		$has_existing_cookie = ! empty( $_COOKIE['leadstream_utm_source'] );
+		$updates             = Cookies::touch_updates( $data, $referrer, $model );
 
-		if ( $preserve_first_touch ) {
+		if ( empty( $updates ) ) {
 			return rest_ensure_response(
 				array(
 					'captured'   => true,
@@ -128,17 +128,15 @@ final class Rest {
 		$duration = max( 1, min( 365, (int) get_option( 'leadstream_cookie_duration', 30 ) ) );
 		$expires  = time() + ( $duration * DAY_IN_SECONDS );
 
-		foreach ( $data as $key => $value ) {
-			self::set_cookie( 'leadstream_' . $key, (string) $value, $expires );
+		// An empty value clears a field left over from an older touch.
+		foreach ( $updates as $key => $value ) {
+			self::set_cookie( 'leadstream_' . $key, $value, '' === $value ? 1 : $expires );
 		}
 
 		// first_page is immutable: only set on the truly first visit, never
 		// overwritten by later touches regardless of model.
 		if ( '' !== $url && empty( $_COOKIE['leadstream_first_page'] ) ) {
 			self::set_cookie( 'leadstream_first_page', $url, $expires );
-		}
-		if ( '' !== $referrer ) {
-			self::set_cookie( 'leadstream_referrer', $referrer, $expires );
 		}
 
 		return rest_ensure_response(
