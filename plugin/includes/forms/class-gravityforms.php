@@ -1,8 +1,8 @@
 <?php
 /**
- * Gravity Forms integration. Auto-populates hidden fields from cookies via
- * gform_field_value_* filters and stores attribution as entry meta on
- * submission.
+ * Gravity Forms integration. Sets mapped hidden fields from the submitter's
+ * cookies at submit time (never in rendered HTML, which page caches share)
+ * and stores attribution as entry meta on submission.
  *
  * @package LeadStream
  */
@@ -30,9 +30,13 @@ final class GravityForms {
 			return;
 		}
 
+		// Dynamic population runs while GF renders the form, so on a GET these
+		// return empty and keep one visitor's values out of cached HTML.
+		// Staying registered also stops GF from rendering a matching query
+		// string value (?gclid=...), which page caches ignore in their keys.
 		foreach ( self::FIELD_KEYS as $key ) {
 			$resolver = static function () use ( $key ) {
-				return self::cookie( $key );
+				return self::field_value( $key );
 			};
 			add_filter( 'gform_field_value_' . $key, $resolver );
 			add_filter( 'gform_field_value_ls_' . $key, $resolver );
@@ -41,7 +45,7 @@ final class GravityForms {
 			add_filter(
 				'gform_field_value_' . $alias,
 				static function () use ( $alias ) {
-					return self::value_for_key( $alias );
+					return self::field_value( $alias );
 				}
 			);
 		}
@@ -189,6 +193,28 @@ final class GravityForms {
 	}
 
 	/**
+	 * Whether this request is a POST. Page caches never store a POST response,
+	 * so only then is it safe to write this visitor's cookie values into
+	 * output. GF submissions (plain, AJAX and REST) and the notifications and
+	 * confirmations they trigger all run on a POST.
+	 */
+	public static function is_post_request(): bool {
+		if ( ! isset( $_SERVER['REQUEST_METHOD'] ) ) {
+			return false;
+		}
+		return 'POST' === strtoupper( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) );
+	}
+
+	/**
+	 * Dynamic population value for a key from field_key(): empty on page
+	 * loads, the visitor's own value on a POST. capture.js fills the rendered
+	 * field in the browser and override_posted_values() sets it at submit.
+	 */
+	public static function field_value( string $key ): string {
+		return self::is_post_request() ? self::value_for_key( $key ) : '';
+	}
+
+	/**
 	 * Replace the posted value of every mapped field with this visitor's
 	 * cookie value, empty when there is no cookie. Runs on gform_pre_submission,
 	 * which GF fires only for front-end submissions, after validation and
@@ -236,12 +262,21 @@ final class GravityForms {
 		return $merge_tags;
 	}
 
+	/**
+	 * Resolve {leadstream:<key>} tags. GF also runs this filter while it
+	 * renders a form (default values, placeholders, HTML fields), so tags
+	 * resolve to empty on page loads and to the submitter's cookies only on
+	 * the POST, where notifications and confirmations are built.
+	 *
+	 * @param string $text Text containing merge tags.
+	 */
 	public static function replace_merge_tags( string $text ): string {
 		if ( false === strpos( $text, '{leadstream:' ) ) {
 			return $text;
 		}
+		$resolve = self::is_post_request();
 		foreach ( self::FIELD_KEYS as $key ) {
-			$text = str_replace( '{leadstream:' . $key . '}', self::cookie( $key ), $text );
+			$text = str_replace( '{leadstream:' . $key . '}', $resolve ? self::cookie( $key ) : '', $text );
 		}
 		return $text;
 	}
@@ -300,7 +335,10 @@ final class GravityForms {
 				'id'           => $max_id,
 				'label'        => 'LeadStream ' . str_replace( '_', ' ', $key ),
 				'inputName'    => 'leadstream_' . $key,
-				'defaultValue' => '{leadstream:' . $key . '}',
+				// Rendered empty so page caches never hold a visitor's
+				// values. capture.js fills it and override_posted_values()
+				// sets it at submit.
+				'defaultValue' => '',
 				'formId'       => $form_id,
 				'pageNumber'   => 1,
 				'adminOnly'    => false,

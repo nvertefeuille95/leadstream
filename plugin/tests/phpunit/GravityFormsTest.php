@@ -20,6 +20,7 @@ final class GravityFormsTest extends TestCase {
 		WP_Mock::tearDown();
 		$_COOKIE = array();
 		$_POST   = array();
+		unset( $_SERVER['REQUEST_METHOD'] );
 		parent::tearDown();
 	}
 
@@ -87,7 +88,8 @@ final class GravityFormsTest extends TestCase {
 		$this->assertSame( $text, GravityForms::replace_merge_tags( $text ) );
 	}
 
-	public function test_replace_merge_tags_substitutes_cookie_values(): void {
+	public function test_replace_merge_tags_substitutes_cookie_values_on_post(): void {
+		$_SERVER['REQUEST_METHOD']        = 'POST';
 		$_COOKIE['leadstream_utm_source'] = 'linkedin';
 		$_COOKIE['leadstream_click_id']   = 'abc123';
 
@@ -98,10 +100,74 @@ final class GravityFormsTest extends TestCase {
 	}
 
 	public function test_replace_merge_tags_missing_cookies_become_empty(): void {
+		$_SERVER['REQUEST_METHOD'] = 'POST';
+
 		$text   = 'Source: {leadstream:utm_source}.';
 		$result = GravityForms::replace_merge_tags( $text );
 
 		$this->assertSame( 'Source: .', $result );
+	}
+
+	/**
+	 * GF runs this filter while rendering default values, placeholders and
+	 * HTML fields. A page load must not write cookies into cacheable HTML.
+	 */
+	public function test_replace_merge_tags_empty_on_page_load(): void {
+		$_SERVER['REQUEST_METHOD']        = 'GET';
+		$_COOKIE['leadstream_referrer']   = 'https://www.google.com/search?q=private';
+		$_COOKIE['leadstream_first_page'] = 'https://controlstation.com/landing/?gclid=TBMTEST123';
+		$_COOKIE['leadstream_click_id']   = 'TBMTEST123';
+
+		$text   = 'Ref {leadstream:referrer} page {leadstream:first_page} click {leadstream:click_id} {embed_url}';
+		$result = GravityForms::replace_merge_tags( $text );
+
+		$this->assertSame( 'Ref  page  click  {embed_url}', $result );
+	}
+
+	public function test_replace_merge_tags_empty_without_request_method(): void {
+		$_COOKIE['leadstream_utm_source'] = 'google';
+		$this->assertSame( 'Source: ', GravityForms::replace_merge_tags( 'Source: {leadstream:utm_source}' ) );
+	}
+
+	public function test_is_post_request(): void {
+		$this->assertFalse( GravityForms::is_post_request() );
+
+		$_SERVER['REQUEST_METHOD'] = 'GET';
+		$this->assertFalse( GravityForms::is_post_request() );
+
+		$_SERVER['REQUEST_METHOD'] = 'HEAD';
+		$this->assertFalse( GravityForms::is_post_request() );
+
+		$_SERVER['REQUEST_METHOD'] = 'POST';
+		$this->assertTrue( GravityForms::is_post_request() );
+
+		$_SERVER['REQUEST_METHOD'] = 'post';
+		$this->assertTrue( GravityForms::is_post_request() );
+	}
+
+	public function test_field_value_empty_on_page_load(): void {
+		$_SERVER['REQUEST_METHOD']           = 'GET';
+		$_COOKIE['leadstream_utm_source']    = 'google';
+		$_COOKIE['leadstream_referrer']      = 'https://www.google.com/';
+		$_COOKIE['leadstream_click_id']      = 'TBMTEST123';
+		$_COOKIE['leadstream_click_id_type'] = 'gclid';
+
+		$this->assertSame( '', GravityForms::field_value( 'utm_source' ) );
+		$this->assertSame( '', GravityForms::field_value( 'referrer' ) );
+		$this->assertSame( '', GravityForms::field_value( 'click_id' ) );
+		$this->assertSame( '', GravityForms::field_value( 'gclid' ) );
+	}
+
+	public function test_field_value_uses_cookies_on_post(): void {
+		$_SERVER['REQUEST_METHOD']           = 'POST';
+		$_COOKIE['leadstream_utm_source']    = 'google';
+		$_COOKIE['leadstream_click_id']      = 'TBMTEST123';
+		$_COOKIE['leadstream_click_id_type'] = 'gclid';
+
+		$this->assertSame( 'google', GravityForms::field_value( 'utm_source' ) );
+		$this->assertSame( 'TBMTEST123', GravityForms::field_value( 'gclid' ) );
+		$this->assertSame( '', GravityForms::field_value( 'fbclid' ) );
+		$this->assertSame( '', GravityForms::field_value( 'utm_medium' ) );
 	}
 
 	public function test_maybe_append_attribution_no_op_when_setting_off(): void {
@@ -164,6 +230,15 @@ final class GravityFormsTest extends TestCase {
 		$this->assertCount( count( \LeadStream\Cookies::FIELD_KEYS ), $props );
 	}
 
+	public function test_injected_field_props_carry_no_cookie_values_or_merge_tags(): void {
+		$_COOKIE['leadstream_referrer'] = 'https://www.google.com/';
+		$_COOKIE['leadstream_click_id'] = 'TBMTEST123';
+
+		foreach ( GravityForms::injected_field_props( array( 'id' => 7 ) ) as $props ) {
+			$this->assertSame( '', $props['defaultValue'], $props['inputName'] );
+		}
+	}
+
 	public function test_injected_field_props_ids_start_past_max_existing(): void {
 		$form = array(
 			'id'     => 7,
@@ -187,7 +262,7 @@ final class GravityFormsTest extends TestCase {
 		$source = $props[0];
 		$this->assertSame( 'hidden', $source['type'] );
 		$this->assertSame( 'leadstream_utm_source', $source['inputName'] );
-		$this->assertSame( '{leadstream:utm_source}', $source['defaultValue'] );
+		$this->assertSame( '', $source['defaultValue'] );
 		$this->assertSame( 7, $source['formId'] );
 		$this->assertFalse( $source['adminOnly'] );
 	}
