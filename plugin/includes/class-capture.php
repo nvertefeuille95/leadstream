@@ -4,6 +4,12 @@
  * the leadstream_* cookies for visitors without JS. JS-side capture overrides
  * these on the same page if present.
  *
+ * Off by default: page caches such as WP Engine's store the Set-Cookie
+ * headers with the page and replay them to every visitor, handing everyone
+ * the same visitor ID and a "direct" source. The REST endpoint the JS calls
+ * is never cached and does the same work. Enable with the
+ * leadstream_server_capture filter only on sites without a page cache.
+ *
  * @package LeadStream
  */
 
@@ -16,6 +22,9 @@ final class Capture {
 	public const SESSION_COOKIE = 'leadstream_session_captured';
 
 	public static function register(): void {
+		if ( ! apply_filters( 'leadstream_server_capture', false ) ) {
+			return;
+		}
 		add_action( 'init', array( __CLASS__, 'maybe_capture' ), 5 );
 	}
 
